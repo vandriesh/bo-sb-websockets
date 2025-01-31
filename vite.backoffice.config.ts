@@ -6,5 +6,5 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
-  root: 'src/sportsbook',
+  root: 'src/backoffice',
 });

@@ -1,6 +1,7 @@
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import type { Odds, OddsUpdate } from '../types';
+import { mockEvents } from '../__fixtures__/mock_data';
+import type { Event, WebSocketMessage, OddsUpdate, EventUpdate } from '../types';
 
 const httpServer = createServer();
 const io = new Server(httpServer, {
@@ -10,52 +11,85 @@ const io = new Server(httpServer, {
   }
 });
 
-// Initial odds data
-let odds: Odds[] = [
-  {
-    id: '1',
-    event: 'Manchester United vs Liverpool',
-    market: 'Match Winner',
-    selection: 'Manchester United',
-    price: 2.5,
-    timestamp: Date.now()
-  },
-  {
-    id: '2',
-    event: 'Manchester United vs Liverpool',
-    market: 'Match Winner',
-    selection: 'Liverpool',
-    price: 2.8,
-    timestamp: Date.now()
-  }
-];
+// Helper to format event-specific channels
+const formatEventChannel = (eventId: string) => `*:Event:${eventId}`;
+
+// Use mock events data
+let events: Event[] = mockEvents;
 
 io.on('connection', (socket) => {
-  console.log('Client connected');
+  console.log('⚡️ WebSocket connected:', socket.id);
 
-  // Send initial odds to clients
-  socket.emit('initialOdds', odds);
+  // Send initial events to clients
+  socket.emit('initialEvents', events);
+  console.log('⚡️ WebSocket sent:', { type: 'initialEvents', to: socket.id });
 
-  // Handle odds updates from backoffice
-  socket.on('updateOdds', (update: OddsUpdate) => {
-    const oddIndex = odds.findIndex(odd => odd.id === update.id);
-    if (oddIndex !== -1) {
-      odds[oddIndex] = {
-        ...odds[oddIndex],
-        price: update.price,
-        timestamp: Date.now()
-      };
-      // Broadcast the update to all clients
-      io.emit('oddsUpdate', odds[oddIndex]);
+  // Handle event-specific updates
+  socket.onAny((channel, message: WebSocketMessage<OddsUpdate | EventUpdate>) => {
+    console.log('⚡️ WebSocket received:', { channel, message });
+
+    // Only handle event-specific channels
+    if (!channel.startsWith('*:Event:')) {
+      console.log('⚡️ WebSocket not handled:', { channel, message });
+      return;
     }
+
+    const eventId = channel.split(':')[2];
+    const event = events.find(e => e.id === eventId);
+    
+    if (!event) {
+      console.log('⚡️ WebSocket error: Event not found:', eventId);
+      return;
+    }
+
+    console.log('⚡️ WebSocket processing event update:', { eventId, message });
+    
+    switch (message.type) {
+      case 'ODDS_UPDATE': {
+        const oddsUpdate = message.payload as OddsUpdate;
+        oddsUpdate.selections.forEach(update => {
+          const selection = event.selections.find(sel => sel.id === update.id);
+          if (selection) {
+            selection.price = update.price;
+            console.log('⚡️ WebSocket updated selection price:', { 
+              eventId, 
+              selectionId: update.id, 
+              newPrice: update.price 
+            });
+          }
+        });
+        break;
+      }
+      
+      case 'EVENT_UPDATE': {
+        const eventUpdate = message.payload as EventUpdate;
+        event.suspended = eventUpdate.suspended;
+        console.log('⚡️ WebSocket updated event suspension:', { 
+          eventId, 
+          suspended: eventUpdate.suspended 
+        });
+        break;
+      }
+      
+      default:
+        console.log('⚡️ WebSocket unknown message type:', message);
+        return;
+    }
+    
+    event.timestamp = Date.now();
+    
+    // Broadcast the updated event to all clients
+    const eventChannel = formatEventChannel(eventId);
+    io.emit(eventChannel, event);
+    console.log('⚡️ WebSocket broadcast:', { channel: eventChannel, event });
   });
 
   socket.on('disconnect', () => {
-    console.log('Client disconnected');
+    console.log('⚡️ WebSocket disconnected:', socket.id);
   });
 });
 
 const PORT = 3001;
 httpServer.listen(PORT, () => {
-  console.log(`WebSocket server running on port ${PORT}`);
+  console.log(`⚡️ WebSocket server running on port ${PORT}`);
 });
