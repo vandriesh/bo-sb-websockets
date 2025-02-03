@@ -7,7 +7,7 @@ const priceChangeTimeouts: { [key: string]: NodeJS.Timeout } = {};
 
 export const initializeSocketListeners = () => {
   const store = useSportsBookStore.getState();
-  const { setEvents, updateEvent, setPriceChange, clearPriceChange, updateSuspendedState, removeBetsByEventId } = store;
+  const { setEvents, updateEvent, setPriceChange, clearPriceChange, updateSuspendedState } = store;
 
   // Subscribe to initial events
   enhancedSocket.subscribeToAllEvents((initialEvents: Event[]) => {
@@ -65,12 +65,6 @@ export const initializeSocketListeners = () => {
               newState: updatedEvent.suspended
             });
             updateSuspendedState(updatedEvent.id, updatedEvent.suspended);
-            
-            // Remove bets if event becomes suspended
-            if (updatedEvent.suspended) {
-              console.log(`🎮 [SB] Removing bets for suspended event ${updatedEvent.id}`);
-              removeBetsByEventId(updatedEvent.id);
-            }
           }
         }
       });

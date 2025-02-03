@@ -7,8 +7,6 @@ export const EventList = () => {
   const { events, priceChanges, bets, addBet, removeBet } = useSportsBookStore();
 
   const handleSelectionClick = (event: any, selection: any) => {
-    if (event.suspended) return;
-    
     const isSelected = bets.some(bet => bet.selectionId === selection.id);
     if (isSelected) {
       removeBet(selection.id);
@@ -41,41 +39,37 @@ export const EventList = () => {
                 </span>
               )}
             </Link>
-            {event.suspended ? (
-              <>
-                {[1, 2, 3].map((_, i) => (
-                  <div key={i} className="flex items-center justify-center">
-                    <div className="bg-gray-100 rounded px-4 py-2 text-gray-400">
-                      <Lock className="w-4 h-4" />
-                    </div>
-                  </div>
-                ))}
-              </>
-            ) : (
-              event.selections.map((selection) => {
-                const isSelected = bets.some(bet => bet.selectionId === selection.id);
-                return (
-                  <button
-                    key={selection.id}
-                    onClick={() => handleSelectionClick(event, selection)}
-                    className={`flex items-center justify-center p-2 rounded transition-colors ${
-                      isSelected 
-                        ? 'bg-blue-100 text-blue-700' 
-                        : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    {priceChanges[selection.id] === 'up' && <ArrowUpCircle className="mr-1 w-4 h-4 text-green-500" />}
-                    {priceChanges[selection.id] === 'down' && <ArrowDownCircle className="mr-1 w-4 h-4 text-red-500" />}
-                    <span className={`font-bold ${
-                      priceChanges[selection.id] === 'up' ? 'text-green-500' :
-                      priceChanges[selection.id] === 'down' ? 'text-red-500' : ''
-                    }`}>
-                      {selection.price.toFixed(2)}
-                    </span>
-                  </button>
-                );
-              })
-            )}
+            {event.selections.map((selection) => {
+              const isSelected = bets.some(bet => bet.selectionId === selection.id);
+              return (
+                <button
+                  key={selection.id}
+                  onClick={() => handleSelectionClick(event, selection)}
+                  className={`flex items-center justify-center p-2 rounded transition-colors ${
+                    isSelected 
+                      ? 'bg-blue-100 text-blue-700' 
+                      : event.suspended
+                      ? 'bg-gray-100 text-gray-500'
+                      : 'hover:bg-gray-100'
+                  }`}
+                >
+                  {!event.suspended && (
+                    <>
+                      {priceChanges[selection.id] === 'up' && <ArrowUpCircle className="mr-1 w-4 h-4 text-green-500" />}
+                      {priceChanges[selection.id] === 'down' && <ArrowDownCircle className="mr-1 w-4 h-4 text-red-500" />}
+                    </>
+                  )}
+                  {event.suspended && <Lock className="mr-1 w-4 h-4" />}
+                  <span className={`font-bold ${
+                    event.suspended ? 'text-gray-500' :
+                    priceChanges[selection.id] === 'up' ? 'text-green-500' :
+                    priceChanges[selection.id] === 'down' ? 'text-red-500' : ''
+                  }`}>
+                    {selection.price.toFixed(2)}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         ))}
       </div>
