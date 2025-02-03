@@ -1,0 +1,188 @@
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -24,6 +24,7 @@
+     "@types/node": "^20.11.24",
+     "@types/react": "^18.3.5",
+     "@types/react-dom": "^18.3.0",
++    "msw": "^2.2.3",
+     "@vitejs/plugin-react": "^4.3.1",
+     "autoprefixer": "^10.4.18",
+     "eslint": "^9.9.1",
+@@ -35,3 +36,8 @@
+     "typescript-eslint": "^8.3.0",
+     "vite": "^5.4.2"
+   }
++  "msw": {
++    "workerDirectory": "public"
++  }
+ }
+
+diff --git a/src/mocks/handlers.ts b/src/mocks/handlers.ts
+new file mode 100644
+index 0000000
+--- /dev/null
++++ b/src/mocks/handlers.ts
+@@ -0,0 +1,15 @@
++import { http, HttpResponse } from 'msw'
++import { mockEvents } from '../__fixtures__/mock_data'
++
++export const handlers = [
++  http.get('/api/events', () => {
++    return HttpResponse.json(mockEvents)
++  })
++]
+
+diff --git a/src/mocks/browser.ts b/src/mocks/browser.ts
+new file mode 100644
+index 0000000
+--- /dev/null
++++ b/src/mocks/browser.ts
+@@ -0,0 +1,4 @@
++import { setupWorker } from 'msw/browser'
++import { handlers } from './handlers'
++
++export const worker = setupWorker(...handlers)
+
+diff --git a/src/common/api/events.ts b/src/common/api/events.ts
+new file mode 100644
+index 0000000..c0c5c0c
+--- /dev/null
++++ b/src/common/api/events.ts
+@@ -0,0 +1,12 @@
++import type { Event } from '../../types'
++
++export const fetchEvents = async (): Promise<Event[]> => {
++  try {
++    const response = await fetch('/api/events')
++    if (!response.ok) throw new Error('Failed to fetch events')
++    return response.json()
++  } catch (error) {
++    console.error('Error fetching events:', error)
++    return []
++  }
++}
+
+diff --git a/src/common/socket/bo-socket.ts b/src/common/socket/bo-socket.ts
+--- a/src/common/socket/bo-socket.ts
++++ b/src/common/socket/bo-socket.ts
+@@ -1,14 +1,19 @@
+ import { enhancedSocket } from '../../socket';
+ import { useBOEventsStore } from '../../backoffice/store/events';
++import { fetchEvents } from '../api/events';
+ import type { Event } from '../../types';
+ 
+-export const initializeSocketListeners = () => {
++export const initializeSocketListeners = async () => {
+   const { setEvents } = useBOEventsStore.getState();
+ 
+-  // Subscribe to initial events only
+-  enhancedSocket.subscribeToAllEvents((initialEvents: Event[]) => {
+-    console.log('⚡️ [BO] Received initial events:', initialEvents);
+-    setEvents(initialEvents);
++  // Fetch initial events via HTTP
++  const initialEvents = await fetchEvents();
++  console.log('📦 [BO] Fetched initial events:', initialEvents);
++  setEvents(initialEvents);
++
++  // Subscribe only to event updates
++  enhancedSocket.socket.on('eventUpdate', (updatedEvent: Event) => {
++    console.log('⚡️ [BO] Received event update:', updatedEvent);
++    useBOEventsStore.getState().updateEvent(updatedEvent);
+   });
+ };
+ 
+diff --git a/src/common/socket/sb-socket.ts b/src/common/socket/sb-socket.ts
+--- a/src/common/socket/sb-socket.ts
++++ b/src/common/socket/sb-socket.ts
+@@ -1,14 +1,19 @@
+ import { enhancedSocket } from '../../socket';
+ import { useSportsBookStore } from '../../sportsbook/store';
++import { fetchEvents } from '../api/events';
+ import type { Event } from '../../types';
+ 
+ // Store timeouts for each selection
+ const priceChangeTimeouts: { [key: string]: NodeJS.Timeout } = {};
+ 
+-export const initializeSocketListeners = () => {
++export const initializeSocketListeners = async () => {
+   const store = useSportsBookStore.getState();
+   const { setEvents, updateEvent, setPriceChange, clearPriceChange, updateSuspendedState } = store;
+ 
++  // Fetch initial events via HTTP
++  const initialEvents = await fetchEvents();
++  console.log('📦 [SB] Fetched initial events:', initialEvents);
++  setEvents(initialEvents);
++
+   // Subscribe to initial events
+   enhancedSocket.subscribeToAllEvents((initialEvents: Event[]) => {
+     console.log('🎮 [SB] Received initial events:', initialEvents);
+
+diff --git a/src/server/index.ts b/src/server/index.ts
+--- a/src/server/index.ts
++++ b/src/server/index.ts
+@@ -9,9 +9,6 @@ const io = new Server(httpServer, {
+   }
+ });
+ 
+-// Helper to format event-specific channels
+-const formatEventChannel = (eventId: string) => `*:Event:${eventId}`;
+-
+ // Use mock events data
+ let events: Event[] = mockEvents;
+ 
+@@ -19,8 +16,8 @@ io.on('connection', (socket) => {
+   console.log('⚡️ WebSocket connected:', socket.id);
+ 
+   // Send initial events to clients
+-  socket.emit('initialEvents', events);
+-  console.log('⚡️ WebSocket sent:', { type: 'initialEvents', to: socket.id });
++  // Removed initial events emission since it's now handled via HTTP
++  console.log('⚡️ WebSocket client connected:', socket.id);
+ 
+   // Handle event-specific updates
+   socket.onAny((channel, message: WebSocketMessage<OddsUpdate | EventUpdate>) => {
+
+diff --git a/src/sportsbook/App.tsx b/src/sportsbook/App.tsx
+--- a/src/sportsbook/App.tsx
++++ b/src/sportsbook/App.tsx
+@@ -5,7 +5,7 @@ import { Betslip } from './components/Betslip';
+ import '../index.css';
+ 
+ function App() {
+-  useEffect(() => {
++  useEffect(async () => {
+     initializeSocketListeners();
+     return () => {
+       cleanupSocketListeners();
+
+diff --git a/src/backoffice/App.tsx b/src/backoffice/App.tsx
+--- a/src/backoffice/App.tsx
++++ b/src/backoffice/App.tsx
+@@ -4,7 +4,7 @@ import { initializeSocketListeners, cleanupSocketListeners } from '../common/socket
+ import '../index.css';
+ 
+ function App() {
+-  useEffect(() => {
++  useEffect(async () => {
+     initializeSocketListeners();
+     return () => {
+       cleanupSocketListeners();
+
+diff --git a/src/main.tsx b/src/main.tsx
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -1,7 +1,13 @@
+ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
++import { worker } from './mocks/browser'
+ import App from './App';
+ 
++if (process.env.NODE_ENV === 'development') {
++  worker.start()
++  console.log('🔧 MSW Worker started')
++}
++
+ createRoot(document.getElementById('root')!).render(
+   <StrictMode>
+     <App />
