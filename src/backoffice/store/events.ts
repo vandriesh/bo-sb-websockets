@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { socket } from '../../socket';
+import { socket, enhancedSocket } from '../../socket';
 import { createEventsSlice, type EventsSlice } from '../../common/store/createEventsSlice';
 import type { Event } from '../../types';
 
@@ -54,8 +54,15 @@ export const useBOEventsStore = create<BOEventsState>()(
           false,
           'boEvents/setSuspended'
         );
-        // Then emit socket event
-        socket.emit('suspendEvent', { eventId, suspended });
+        
+        // Then emit socket event with correct format
+        enhancedSocket.emitEventUpdate(eventId, {
+          type: 'EVENT_UPDATE',
+          payload: {
+            id: eventId,
+            suspended
+          }
+        });
       }
     }),
     {

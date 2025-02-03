@@ -1,9 +1,13 @@
 import { createServer } from 'http';
+import express from 'express';
 import { Server } from 'socket.io';
+import cors from 'cors';
 import { mockEvents } from '../__fixtures__/mock_data';
+import { getEvents } from './api/events';
 import type { Event, WebSocketMessage, OddsUpdate, EventUpdate } from '../types';
 
-const httpServer = createServer();
+const app = express();
+const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
     origin: "*",
@@ -11,8 +15,12 @@ const io = new Server(httpServer, {
   }
 });
 
-// Helper to format event-specific channels
-const formatEventChannel = (eventId: string) => `*:Event:${eventId}`;
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// API Routes
+app.get('/api/events', getEvents);
 
 // Use mock events data
 let events: Event[] = mockEvents;
@@ -20,21 +28,13 @@ let events: Event[] = mockEvents;
 io.on('connection', (socket) => {
   console.log('⚡️ WebSocket connected:', socket.id);
 
-  // Send initial events to clients
-  socket.emit('initialEvents', events);
-  console.log('⚡️ WebSocket sent:', { type: 'initialEvents', to: socket.id });
-
   // Handle event-specific updates
   socket.onAny((channel, message: WebSocketMessage<OddsUpdate | EventUpdate>) => {
     console.log('⚡️ WebSocket received:', { channel, message });
 
-    // Only handle event-specific channels
-    if (!channel.startsWith('*:Event:')) {
-      console.log('⚡️ WebSocket not handled:', { channel, message });
-      return;
-    }
-
-    const eventId = channel.split(':')[2];
+    // Parse event ID from channel
+    const [prefix, eventId, suffix] = channel.split(':');
+    
     const event = events.find(e => e.id === eventId);
     
     if (!event) {
@@ -78,10 +78,9 @@ io.on('connection', (socket) => {
     
     event.timestamp = Date.now();
     
-    // Broadcast the updated event to all clients
-    const eventChannel = formatEventChannel(eventId);
-    io.emit(eventChannel, event);
-    console.log('⚡️ WebSocket broadcast:', { channel: eventChannel, event });
+    // Broadcast the updated event to all clients on the event-specific channel
+    io.emit(`event:${eventId}:update`, event);
+    console.log('⚡️ WebSocket broadcast:', { channel: `event:${eventId}:update`, event });
   });
 
   socket.on('disconnect', () => {
@@ -91,5 +90,5 @@ io.on('connection', (socket) => {
 
 const PORT = 3001;
 httpServer.listen(PORT, () => {
-  console.log(`⚡️ WebSocket server running on port ${PORT}`);
+  console.log(`⚡️ Server running on port ${PORT}`);
 });

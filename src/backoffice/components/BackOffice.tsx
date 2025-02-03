@@ -1,13 +1,24 @@
 import React from 'react';
 import { enhancedSocket } from '../../socket';
 import { useBOEventsStore } from '../store/events';
+import { useEvents } from '../../common/hooks/useEvents';
 import { EventItem } from './EventItem';
 
 export const BackOffice = () => {
-  const { events, updating, setUpdating, updateSelectionPrice } = useBOEventsStore();
+  const { events, updating, setUpdating, updateSelectionPrice, setEvents } = useBOEventsStore();
   const [updateDirection, setUpdateDirection] = React.useState<'up' | 'down' | null>(null);
   const pendingUpdateRef = React.useRef<{ eventId: string; id: string; price: number; direction: 'up' | 'down' } | null>(null);
   const debounceTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch initial events using React Query
+  const { data: initialEvents, isLoading } = useEvents();
+
+  // Set initial events when data is loaded
+  React.useEffect(() => {
+    if (initialEvents) {
+      setEvents(initialEvents);
+    }
+  }, [initialEvents, setEvents]);
 
   const handlePriceUpdate = React.useCallback((eventId: string, id: string, newPrice: number, direction: 'up' | 'down') => {
     // Immediately update the UI
@@ -62,6 +73,18 @@ export const BackOffice = () => {
       }
     };
   }, []);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 p-8">
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-white rounded-lg shadow-lg p-8">
+            <p className="text-gray-600">Loading events...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">

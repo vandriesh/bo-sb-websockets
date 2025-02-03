@@ -2,16 +2,31 @@ import { enhancedSocket } from '../../socket';
 import { useBOEventsStore } from '../../backoffice/store/events';
 import type { Event } from '../../types';
 
-export const initializeSocketListeners = () => {
-  const { setEvents } = useBOEventsStore.getState();
+// Store cleanup functions
+let unsubscribeFunctions: (() => void)[] = [];
 
-  // Subscribe to initial events only
-  enhancedSocket.subscribeToAllEvents((initialEvents: Event[]) => {
-    console.log('⚡️ [BO] Received initial events:', initialEvents);
-    setEvents(initialEvents);
+export const initializeSocketListeners = () => {
+  const { events, updateEvent } = useBOEventsStore.getState();
+
+  // Subscribe to individual event channels
+  events.forEach(event => {
+    console.log(`⚡️ [BO] Setting up listener for event: ${event.id}`);
+    const unsubscribe = enhancedSocket.subscribeToEvent(event.id, (updatedEvent: Event) => {
+      console.log(`⚡️ [BO] Received update for event ${event.id}:`, updatedEvent);
+      updateEvent(updatedEvent);
+    });
+    unsubscribeFunctions.push(unsubscribe);
   });
 };
 
 export const cleanupSocketListeners = () => {
-  enhancedSocket.socket.off('initialEvents');
+  console.log('⚡️ [BO] Cleaning up socket listeners');
+  
+  // Clean up all subscriptions
+  unsubscribeFunctions.forEach(unsubscribe => {
+    unsubscribe();
+  });
+  unsubscribeFunctions = [];
+  
+  console.log('⚡️ [BO] Socket listeners cleaned up');
 };
