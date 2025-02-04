@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { EventList } from './components/EventList';
-import { EventDetails } from './components/EventDetails';
-import { Betslip } from './components/Betslip';
+import { EventList } from './events/EventList';
+import { EventDetails } from './events/EventDetails';
+import { Betslip } from './betslip/Betslip';
 import { WSLogger } from '../common/components/WSLogger';
-import { initializeSocketListeners, cleanupSocketListeners } from '../common/socket/sb-socket';
+import { initializeSocketListeners, cleanupSocketListeners } from './events/useEventsSocket';
 import '../index.css';
 
 const queryClient = new QueryClient();
