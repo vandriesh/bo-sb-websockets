@@ -10,33 +10,38 @@ interface EventItemProps {
   source: 'event_list' | 'event_betslip';
 }
 
-export const EventItem: React.FC<EventItemProps> = ({ id, source }) => {
-  const { events, priceChanges, bets, addBet, removeBet } = useSportsBookStore();
-  
-  const event = events.find(e => e.id === id);
-  
-  if (!event) {
-    return null;
-  }
+export const EventItem = React.memo(({ id, source }: EventItemProps) => {
+  // Use stable selectors to prevent unnecessary re-renders
+  const event = useSportsBookStore(React.useCallback(
+    state => state.events.find(e => e.id === Number(id)),
+    [id]
+  ));
+  const priceChanges = useSportsBookStore(state => state.priceChanges);
+  const bets = useSportsBookStore(state => state.bets);
+  const { addBet, removeBet } = useSportsBookStore();
 
-  // Subscribe to event updates with source
+  // Setup event subscription
   useEventSubscription(event, source);
 
-  // We know we always have at least one market with three selections
+  if (!event) return null;
+
   const mainMarket = event.markets[0];
 
-  const handleSelectionClick = (selection: Selection) => {
+  const handleSelectionClick = React.useCallback((selection: Selection) => {
     const isSelected = bets.some(bet => bet.selectionId === selection.id);
     if (isSelected) {
       removeBet(selection.id);
     } else {
       addBet(event.id, selection.id);
     }
-  };
+  }, [event.id, bets, addBet, removeBet]);
 
-  const formatTime = (date: string) => {
-    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  const formatTime = React.useCallback((date: string) => {
+    return new Date(date).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  }, []);
 
   return (
     <div className="grid grid-cols-[1fr,repeat(3,120px)] gap-4 p-4 items-center">
@@ -91,8 +96,12 @@ export const EventItem: React.FC<EventItemProps> = ({ id, source }) => {
           >
             {!event.suspended && (
               <>
-                {priceChanges[selection.id] === 'up' && <ArrowUpCircle className="mr-1 w-4 h-4 text-green-500" />}
-                {priceChanges[selection.id] === 'down' && <ArrowDownCircle className="mr-1 w-4 h-4 text-red-500" />}
+                {priceChanges[selection.id] === 'up' && (
+                  <ArrowUpCircle className="mr-1 w-4 h-4 text-green-500" />
+                )}
+                {priceChanges[selection.id] === 'down' && (
+                  <ArrowDownCircle className="mr-1 w-4 h-4 text-red-500" />
+                )}
               </>
             )}
             {event.suspended && <Lock className="mr-1 w-4 h-4" />}
@@ -108,4 +117,6 @@ export const EventItem: React.FC<EventItemProps> = ({ id, source }) => {
       })}
     </div>
   );
-};
+});
+
+EventItem.displayName = 'EventItem';

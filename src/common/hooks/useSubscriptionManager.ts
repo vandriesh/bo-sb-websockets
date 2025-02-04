@@ -1,49 +1,60 @@
-import { useRef, useCallback } from 'react';
-import type { SubscriptionSource, SubscriptionTracker, SubscriptionManager } from '../../types';
+import { useCallback } from 'react';
+import type { SubscriptionSource } from '../../types';
 import { enhancedSocket } from '../../socket';
 import { useSportsBookStore } from '../../sportsbook/events/useEventsStore';
+import { useSubscriptionStore } from '../store/subscriptionStore';
+
+// Track active socket subscriptions
+const activeSocketSubscriptions = new Set<string>();
 
 export const useSubscriptionManager = () => {
-  const subscriptionsRef = useRef<SubscriptionManager>({
-    events: new Map(),
-    markets: new Map()
-  });
-
   const store = useSportsBookStore.getState();
+  const subscriptionStore = useSubscriptionStore();
 
   const addEventSubscription = useCallback((eventId: number, source: SubscriptionSource) => {
-    const { events } = subscriptionsRef.current;
+    const channel = `*:Event:${eventId}`;
     
-    if (!events.has(eventId)) {
-      // Create new subscription if this is the first source
-      const unsubscribe = enhancedSocket.subscribeToEvent(eventId, (message) => {
-        console.log(`📡 [${source}] Event ${eventId} update:`, message);
+    // Add source to store
+    subscriptionStore.addSource(channel, source);
+    
+    // Only create socket subscription if it doesn't exist yet
+    if (!activeSocketSubscriptions.has(channel)) {
+      console.log(`📡 Creating new socket subscription for ${channel}`);
+      activeSocketSubscriptions.add(channel);
+      
+      enhancedSocket.subscribeToEvent(eventId, (message) => {
         if (message.type === 'EventStatusUpdate') {
           store.handleEventUpdate(message.payload);
         }
       });
-      
-      events.set(eventId, {
-        sources: new Set([source]),
-        unsubscribe
-      });
-    } else {
-      // Add source to existing subscription
-      events.get(eventId)!.sources.add(source);
     }
     
-    return () => removeEventSubscription(eventId, source);
+    return () => {
+      subscriptionStore.removeSource(channel, source);
+      
+      // Only remove socket subscription if no sources left
+      const remainingSources = subscriptionStore.subscriptions.get(channel);
+      if (!remainingSources || remainingSources.size === 0) {
+        console.log(`📡 Removing socket subscription for ${channel}`);
+        activeSocketSubscriptions.delete(channel);
+        enhancedSocket.socket.off(channel);
+      }
+    };
   }, []);
 
   const addMarketSubscription = useCallback((marketId: number, source: SubscriptionSource) => {
-    const { markets } = subscriptionsRef.current;
+    const channel = `*:Market:${marketId}`;
     
-    if (!markets.has(marketId)) {
-      // Create new subscription if this is the first source
-      const unsubscribe = enhancedSocket.subscribeToMarket(marketId, (message) => {
-        console.log(`📡 [${source}] Market ${marketId} update:`, message);
+    // Add source to store
+    subscriptionStore.addSource(channel, source);
+    
+    // Only create socket subscription if it doesn't exist yet
+    if (!activeSocketSubscriptions.has(channel)) {
+      console.log(`📡 Creating new socket subscription for ${channel}`);
+      activeSocketSubscriptions.add(channel);
+      
+      enhancedSocket.subscribeToMarket(marketId, (message) => {
         if (message.type === 'SelectionPriceChange') {
-          // Find the event that contains this market
           const event = store.events.find(e => 
             e.markets.some(m => m.id === message.payload.marketId)
           );
@@ -52,69 +63,24 @@ export const useSubscriptionManager = () => {
           }
         }
       });
-      
-      markets.set(marketId, {
-        sources: new Set([source]),
-        unsubscribe
-      });
-    } else {
-      // Add source to existing subscription
-      markets.get(marketId)!.sources.add(source);
     }
     
-    return () => removeMarketSubscription(marketId, source);
-  }, []);
-
-  const removeEventSubscription = useCallback((eventId: number, source: SubscriptionSource) => {
-    const { events } = subscriptionsRef.current;
-    const subscription = events.get(eventId);
-    
-    if (subscription) {
-      subscription.sources.delete(source);
+    return () => {
+      subscriptionStore.removeSource(channel, source);
       
-      // If no sources left, unsubscribe and remove
-      if (subscription.sources.size === 0) {
-        subscription.unsubscribe();
-        events.delete(eventId);
+      // Only remove socket subscription if no sources left
+      const remainingSources = subscriptionStore.subscriptions.get(channel);
+      if (!remainingSources || remainingSources.size === 0) {
+        console.log(`📡 Removing socket subscription for ${channel}`);
+        activeSocketSubscriptions.delete(channel);
+        enhancedSocket.socket.off(channel);
       }
-    }
-  }, []);
-
-  const removeMarketSubscription = useCallback((marketId: number, source: SubscriptionSource) => {
-    const { markets } = subscriptionsRef.current;
-    const subscription = markets.get(marketId);
-    
-    if (subscription) {
-      subscription.sources.delete(source);
-      
-      // If no sources left, unsubscribe and remove
-      if (subscription.sources.size === 0) {
-        subscription.unsubscribe();
-        markets.delete(marketId);
-      }
-    }
-  }, []);
-
-  const getSubscriptionSummary = useCallback(() => {
-    const { events, markets } = subscriptionsRef.current;
-    
-    return {
-      events: Array.from(events.entries()).map(([id, { sources }]) => ({
-        channel: `*:Event:${id}`,
-        sources: Array.from(sources)
-      })),
-      markets: Array.from(markets.entries()).map(([id, { sources }]) => ({
-        channel: `*:Market:${id}`,
-        sources: Array.from(sources)
-      }))
     };
   }, []);
 
   return {
     addEventSubscription,
     addMarketSubscription,
-    removeEventSubscription,
-    removeMarketSubscription,
-    getSubscriptionSummary
+    getSubscriptionSummary: subscriptionStore.getSubscriptionSummary
   };
 };

@@ -6,16 +6,19 @@ import { useEventSubscription } from '../hooks/useEventSubscription';
 
 export const EventDetails = () => {
   const { id } = useParams<{ id: string }>();
-  const { events, priceChanges, bets, addBet, removeBet } = useSportsBookStore();
+  // Use stable selectors to prevent unnecessary re-renders
+  const event = useSportsBookStore(React.useCallback(
+    state => state.events.find(e => e.id === Number(id)),
+    [id]
+  ));
+  const priceChanges = useSportsBookStore(state => state.priceChanges);
+  const bets = useSportsBookStore(state => state.bets);
+  const { addBet, removeBet } = useSportsBookStore();
 
-  const event = events.find(e => e.id === id);
+  // Subscribe to event updates with source
+  useEventSubscription(event, 'event_details');
 
-  // Subscribe to event updates with source when rendered
-  if (event) {
-    useEventSubscription(event, 'event_details');
-  }
-
-  const handleSelectionClick = (selection: any) => {
+  const handleSelectionClick = React.useCallback((selection: any) => {
     if (!event) return;
     
     const isSelected = bets.some(bet => bet.selectionId === selection.id);
@@ -24,11 +27,14 @@ export const EventDetails = () => {
     } else {
       addBet(event.id, selection.id);
     }
-  };
+  }, [event, bets, addBet, removeBet]);
 
-  const formatTime = (date: string) => {
-    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  const formatTime = React.useCallback((date: string) => {
+    return new Date(date).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  }, []);
 
   if (!event) {
     return (
@@ -37,7 +43,9 @@ export const EventDetails = () => {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Events
         </Link>
-        <p className="text-gray-600">Loading event details...</p>
+        <div className="text-center py-8">
+          <p className="text-gray-600">Event not found</p>
+        </div>
       </div>
     );
   }
@@ -105,8 +113,12 @@ export const EventDetails = () => {
                       <div className="flex items-center justify-center">
                         {!event.suspended && (
                           <>
-                            {priceChanges[selection.id] === 'up' && <ArrowUpCircle className="mr-2 text-green-500" />}
-                            {priceChanges[selection.id] === 'down' && <ArrowDownCircle className="mr-2 text-red-500" />}
+                            {priceChanges[selection.id] === 'up' && (
+                              <ArrowUpCircle className="mr-2 text-green-500" />
+                            )}
+                            {priceChanges[selection.id] === 'down' && (
+                              <ArrowDownCircle className="mr-2 text-red-500" />
+                            )}
                           </>
                         )}
                         {event.suspended && <Lock className="mr-2 w-4 h-4" />}

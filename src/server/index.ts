@@ -50,8 +50,8 @@ io.on('connection', (socket) => {
       
       if (message.type === 'SelectionPriceChange') {
         const priceChange = message.payload;
-        // Broadcast the price change to all OTHER clients (excluding sender)
-        socket.broadcast.emit(channel, {
+        // Broadcast the price change to all clients (including sender)
+        io.emit(channel, {
           type: 'SelectionPriceChange',
           payload: {
             marketId,
@@ -84,8 +84,8 @@ io.on('connection', (socket) => {
       
       if (message.type === 'EventStatusUpdate') {
         const eventUpdate = message.payload;
-        // Broadcast the event update to all OTHER clients (excluding sender)
-        socket.broadcast.emit(channel, {
+        // Broadcast the event update to all clients (including sender)
+        io.emit(channel, {
           type: 'EventStatusUpdate',
           payload: {
             id: eventId,

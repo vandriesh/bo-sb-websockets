@@ -1,5 +1,6 @@
 import { io } from 'socket.io-client';
 import type { Event, WebSocketMessage } from './types';
+import { WsMessageType } from './types';
 
 // Create socket with improved configuration
 const socket = io('http://localhost:3001', {
@@ -9,7 +10,6 @@ const socket = io('http://localhost:3001', {
   reconnectionAttempts: Infinity,
   timeout: 20000,
   autoConnect: true,
-  // Add better error handling
   forceNew: true,
   reconnection: true
 });
@@ -25,38 +25,25 @@ const logMessage = (source: 'bo' | 'sb', direction: 'in' | 'out', event: string,
   }
 };
 
-// Simple channel validation
-const validateChannel = (channel: string): boolean => {
-  // Handle system channels
-  if (['connect', 'disconnect', 'error', 'reconnect'].includes(channel)) {
-    return true;
-  }
-
-  // Handle market channels
-  const marketMatch = channel.match(/^\*:Market:(\d+)$/);
-  if (marketMatch) {
-    const marketId = parseInt(marketMatch[1], 10);
-    return marketId >= 1000 && marketId <= 9999; // Market IDs: 1000-9999
-  }
-
-  // Handle event channels (for suspension updates)
-  const eventMatch = channel.match(/^\*:Event:(\d+)$/);
-  if (eventMatch) {
-    const eventId = parseInt(eventMatch[1], 10);
-    return eventId >= 1 && eventId <= 999; // Event IDs: 1-999
-  }
-
-  return false;
+// Type guard for WebSocket messages
+const isValidMessage = (data: any): data is WebSocketMessage<any> => {
+  return (
+    data &&
+    typeof data === 'object' &&
+    'type' in data &&
+    'payload' in data &&
+    Object.values(WsMessageType).includes(data.type as WsMessageType)
+  );
 };
 
 // Enhanced socket wrapper with better connection handling
 export const enhancedSocket = {
   socket,
   
-  subscribeToMarket: (marketId: number, callback: (data: any) => void) => {
+  subscribeToMarket: (marketId: number, callback: (data: WebSocketMessage<any>) => void) => {
     const channel = `*:Market:${marketId}`;
     
-    if (!validateChannel(channel)) {
+    if (!channel.match(/^\*:Market:\d+$/)) {
       console.error('Invalid market channel format:', channel);
       return () => {};
     }
@@ -65,6 +52,10 @@ export const enhancedSocket = {
     
     const handler = (data: any) => {
       try {
+        if (!isValidMessage(data)) {
+          console.warn(`Invalid message format received on channel ${channel}:`, data);
+          return;
+        }
         logMessage('sb', 'in', channel, data);
         callback(data);
       } catch (error) {
@@ -74,7 +65,6 @@ export const enhancedSocket = {
 
     socket.on(channel, handler);
     
-    // Track subscription
     const cleanup = () => {
       socket.off(channel, handler);
       activeSubscriptions.delete(channel);
@@ -84,10 +74,10 @@ export const enhancedSocket = {
     return cleanup;
   },
 
-  subscribeToEvent: (eventId: number, callback: (data: any) => void) => {
+  subscribeToEvent: (eventId: number, callback: (data: WebSocketMessage<any>) => void) => {
     const channel = `*:Event:${eventId}`;
     
-    if (!validateChannel(channel)) {
+    if (!channel.match(/^\*:Event:\d+$/)) {
       console.error('Invalid event channel format:', channel);
       return () => {};
     }
@@ -96,6 +86,10 @@ export const enhancedSocket = {
     
     const handler = (data: any) => {
       try {
+        if (!isValidMessage(data)) {
+          console.warn(`Invalid message format received on channel ${channel}:`, data);
+          return;
+        }
         logMessage('sb', 'in', channel, data);
         callback(data);
       } catch (error) {
@@ -105,7 +99,6 @@ export const enhancedSocket = {
 
     socket.on(channel, handler);
     
-    // Track subscription
     const cleanup = () => {
       socket.off(channel, handler);
       activeSubscriptions.delete(channel);
@@ -119,8 +112,12 @@ export const enhancedSocket = {
     try {
       const channel = `*:Market:${marketId}`;
       
-      if (!validateChannel(channel)) {
+      if (!channel.match(/^\*:Market:\d+$/)) {
         throw new Error('Invalid market channel format');
+      }
+      
+      if (!isValidMessage(data)) {
+        throw new Error('Invalid message format for price update');
       }
       
       logMessage('bo', 'out', channel, data);
@@ -135,8 +132,12 @@ export const enhancedSocket = {
     try {
       const channel = `*:Event:${eventId}`;
       
-      if (!validateChannel(channel)) {
+      if (!channel.match(/^\*:Event:\d+$/)) {
         throw new Error('Invalid event channel format');
+      }
+      
+      if (!isValidMessage(data)) {
+        throw new Error('Invalid message format for event update');
       }
       
       logMessage('bo', 'out', channel, data);
@@ -147,17 +148,15 @@ export const enhancedSocket = {
     }
   },
 
-  // Helper to get active subscriptions
   getActiveSubscriptions: () => Array.from(activeSubscriptions.keys()),
 
-  // Helper to cleanup all subscriptions
   cleanupAllSubscriptions: () => {
     activeSubscriptions.forEach(cleanup => cleanup());
     activeSubscriptions.clear();
   }
 };
 
-// Connection lifecycle events with better error handling
+// Connection lifecycle events
 socket.on('connect', () => {
   console.log('Connected to WebSocket server with ID:', socket.id);
   logMessage('bo', 'in', 'connect', { id: socket.id });
@@ -174,7 +173,6 @@ socket.on('disconnect', (reason) => {
   console.log('Disconnected from WebSocket server:', reason);
   logMessage('bo', 'in', 'disconnect', { reason });
   logMessage('sb', 'in', 'disconnect', { reason });
-  // Cleanup subscriptions on disconnect
   enhancedSocket.cleanupAllSubscriptions();
 });
 
@@ -200,7 +198,6 @@ socket.on('reconnect_error', (error) => {
 
 socket.on('reconnect_failed', () => {
   console.error('WebSocket reconnection failed');
-  // Cleanup subscriptions on reconnection failure
   enhancedSocket.cleanupAllSubscriptions();
 });
 
