@@ -30,7 +30,8 @@ export const usePriceUpdate = (eventId: string) => {
           price
         };
 
-        enhancedSocket.emitEventUpdate(eventId, {
+        // Use market-based channel for price updates
+        enhancedSocket.emitPriceUpdate(marketId, {
           type: WsMessageType.SelectionPriceChange,
           payload
         });
