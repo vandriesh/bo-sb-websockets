@@ -1,23 +1,24 @@
 import type { Event } from '../types';
+import { IdRanges } from '../common/socket/protocol';
 
 export const mockEvents: Event[] = [
   {
-    id: 'event1',
+    id: 1,
     name: 'Manchester United vs Liverpool',
-    market: 'Match Winner',
+    market: 1000,
     selections: [
       {
-        id: 'sel1',
+        id: 10001,
         name: 'Manchester United (1)',
         price: 2.5
       },
       {
-        id: 'sel2',
+        id: 10002,
         name: 'Draw (X)',
         price: 3.4
       },
       {
-        id: 'sel3',
+        id: 10003,
         name: 'Liverpool (2)',
         price: 2.8
       }
@@ -26,22 +27,22 @@ export const mockEvents: Event[] = [
     suspended: false
   },
   {
-    id: 'event2',
+    id: 2,
     name: 'Arsenal vs Chelsea',
-    market: 'Match Winner',
+    market: 1000,
     selections: [
       {
-        id: 'sel4',
+        id: 10004,
         name: 'Arsenal (1)',
         price: 2.1
       },
       {
-        id: 'sel5',
+        id: 10005,
         name: 'Draw (X)',
         price: 3.2
       },
       {
-        id: 'sel6',
+        id: 10006,
         name: 'Chelsea (2)',
         price: 3.6
       }

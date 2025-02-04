@@ -2,17 +2,15 @@ import React from 'react';
 import { RefreshCw, Lock, Unlock } from 'lucide-react';
 import type { Event } from '../../types';
 import { useEventsStore } from './useEventsStore';
-import { enhancedSocket } from '../../socket';
+import { usePriceUpdate } from './usePriceUpdate';
 
 interface EventItemProps {
   event: Event;
-  onPriceUpdate: (eventId: string, id: string, newPrice: number, direction: 'up' | 'down') => void;
-  updating: string | null;
-  updateDirection: 'up' | 'down' | null;
 }
 
-export const EventItem = React.memo(({ event, onPriceUpdate, updating, updateDirection }: EventItemProps) => {
+export const EventItem = React.memo(({ event }: EventItemProps) => {
   const { setSuspended } = useEventsStore();
+  const { updating, updateDirection, handlePriceUpdate } = usePriceUpdate(event.id);
 
   const handleSuspendToggle = () => {
     setSuspended(event.id, !event.suspended);
@@ -29,7 +27,7 @@ export const EventItem = React.memo(({ event, onPriceUpdate, updating, updateDir
       {event.selections.map((selection) => (
         <div key={selection.id} className="flex items-center justify-center space-x-2">
           <button
-            onClick={() => onPriceUpdate(event.id, selection.id, selection.price - 0.1, 'down')}
+            onClick={() => handlePriceUpdate(selection.id, selection.price - 0.1, 'down')}
             className={`w-10 h-8 flex items-center justify-center bg-red-100 text-red-600 rounded hover:bg-red-200 ${
               event.suspended ? 'opacity-50 cursor-not-allowed' : ''
             }`}
@@ -45,7 +43,7 @@ export const EventItem = React.memo(({ event, onPriceUpdate, updating, updateDir
             {selection.price.toFixed(2)}
           </span>
           <button
-            onClick={() => onPriceUpdate(event.id, selection.id, selection.price + 0.1, 'up')}
+            onClick={() => handlePriceUpdate(selection.id, selection.price + 0.1, 'up')}
             className={`w-10 h-8 flex items-center justify-center bg-green-100 text-green-600 rounded hover:bg-green-200 ${
               event.suspended ? 'opacity-50 cursor-not-allowed' : ''
             }`}

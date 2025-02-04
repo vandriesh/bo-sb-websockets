@@ -38,17 +38,19 @@ let events: Event[] = mockEvents;
 io.on('connection', (socket) => {
   console.log('⚡️ WebSocket connected:', socket.id);
 
-  // Send initial events to the client
-  socket.emit('initialEvents', events);
-
   // Handle event-specific updates
-  socket.onAny((channel, message: WebSocketMessage<OddsUpdate | EventUpdate>) => {
+  socket.on('event:update', (channel: string, message: WebSocketMessage<OddsUpdate | EventUpdate>) => {
     try {
-      console.log('⚡️ WebSocket received:', { channel, message });
+      console.log('⚡️ WebSocket received update:', { channel, message });
 
       // Parse event ID from channel
-      const eventId = channel.split(':')[1];
+      const match = channel.match(/\*:Event:(\d+)/);
+      if (!match) {
+        console.log('⚡️ WebSocket error: Invalid channel format:', channel);
+        return;
+      }
       
+      const eventId = parseInt(match[1], 10);
       const event = events.find(e => e.id === eventId);
       
       if (!event) {
@@ -92,9 +94,9 @@ io.on('connection', (socket) => {
       
       event.timestamp = Date.now();
       
-      // Broadcast the updated event to all clients
-      io.emit(`event:${eventId}:update`, event);
-      console.log('⚡️ WebSocket broadcast:', { channel: `event:${eventId}:update`, event });
+      // Broadcast the updated event to all OTHER clients (excluding sender)
+      socket.broadcast.emit(`*:Event:${eventId}`, event);
+      console.log('⚡️ WebSocket broadcast:', { channel: `*:Event:${eventId}`, event });
     } catch (error) {
       console.error('⚡️ WebSocket error processing message:', error);
       socket.emit('error', { message: 'Error processing message' });
