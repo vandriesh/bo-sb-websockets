@@ -1,15 +1,12 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { WSMonitor } from '../components/WSMonitor';
+import { WSMonitor } from '../WSMonitor';
 import { useSubscriptionStore } from '../../../common/store/subscriptionStore';
 import type { SubscriptionSource } from '../../../types';
-
-// Add missing imports
-import '../../../test/setup';
+import '@testing-library/jest-dom';
 
 describe('WSMonitor Component', () => {
   beforeEach(() => {
-    // Reset subscription store before each test
     useSubscriptionStore.setState({ subscriptions: new Map() });
   });
 
@@ -24,8 +21,8 @@ describe('WSMonitor Component', () => {
     const marketChannel = '*:Market:1000';
     const source: SubscriptionSource = 'event_list';
 
-    store.addSource(eventChannel, source);
-    store.addSource(marketChannel, source);
+    store.addSubscription(eventChannel, source);
+    store.addSubscription(marketChannel, source);
 
     render(<WSMonitor isConnected={true} position="bottom-left" />);
 

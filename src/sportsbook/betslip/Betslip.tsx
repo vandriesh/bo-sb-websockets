@@ -1,15 +1,28 @@
 import React from 'react';
-import { X, Trash2, ArrowUpCircle, ArrowDownCircle, Lock, Clock } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useSportsBookStore } from '../events/useEventsStore';
 import { useBetslipCalculations } from './useBetslipCalculations';
-import { useBetslipSubscriptions } from './useBetslipSubscriptions';
+import { BetslipItem } from './BetslipItem';
 
-export const Betslip = () => {
-  const { bets, events, priceChanges, removeBet, updateStake, clearBetslip } = useSportsBookStore();
+export const Betslip = React.memo(() => {
+  const bets = useSportsBookStore(state => state.bets);
+  const events = useSportsBookStore(state => state.events);
+  const priceChanges = useSportsBookStore(state => state.priceChanges);
+  const { removeBet, updateStake, clearBetslip } = useSportsBookStore();
+
   const { betsWithData, totalStake, potentialWinnings, hasActiveBets } = useBetslipCalculations(bets, events);
 
-  // Subscribe to all events in betslip
-  useBetslipSubscriptions(betsWithData.map(({ event }) => event));
+  const handleRemoveBet = React.useCallback((selectionId: string) => {
+    removeBet(selectionId);
+  }, [removeBet]);
+
+  const handleUpdateStake = React.useCallback((selectionId: string, value: number) => {
+    updateStake(selectionId, value);
+  }, [updateStake]);
+
+  const handleClearBetslip = React.useCallback(() => {
+    clearBetslip();
+  }, [clearBetslip]);
 
   if (bets.length === 0) {
     return (
@@ -24,7 +37,7 @@ export const Betslip = () => {
       <div className="flex items-center justify-between p-4 border-b">
         <h2 className="font-semibold">Betslip ({bets.length})</h2>
         <button
-          onClick={clearBetslip}
+          onClick={handleClearBetslip}
           className="text-gray-500 hover:text-gray-700"
         >
           <Trash2 className="w-4 h-4" />
@@ -33,82 +46,15 @@ export const Betslip = () => {
 
       <div className="flex-1 overflow-auto">
         {betsWithData.map(({ event, selection, stake }) => (
-          <div 
-            key={selection.id} 
-            className={`p-4 border-b ${event.suspended ? 'bg-gray-50' : ''}`}
-          >
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-500">[{event.id}]</span>
-                  <p className="font-medium">{event.name}</p>
-                  {event.suspended && (
-                    <span className="inline-flex items-center text-red-500 text-sm">
-                      <Lock className="w-3 h-3 mr-1" />
-                      Suspended
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 mt-1">
-                  {event.status === 'live' ? (
-                    <>
-                      <span className="inline-flex items-center text-red-500 text-sm">
-                        <Clock className="w-3 h-3 mr-1" />
-                        {event.timeElapsed}'
-                      </span>
-                      <span className="text-sm font-semibold">
-                        {event.score?.home} - {event.score?.away}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-sm text-gray-500">
-                      {new Date(event.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-gray-600 mt-1">{selection.name}</p>
-              </div>
-              <button
-                onClick={() => removeBet(selection.id)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex items-center justify-between">
-              <input
-                type="number"
-                min="0"
-                step="0.1"
-                value={stake || ''}
-                onChange={(e) => updateStake(selection.id, parseFloat(e.target.value) || 0)}
-                placeholder="Stake"
-                disabled={event.suspended}
-                className={`w-24 px-2 py-1 border rounded text-right ${
-                  event.suspended 
-                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed' 
-                    : ''
-                }`}
-              />
-              <div className="flex items-center">
-                {event.suspended ? (
-                  <Lock className="w-4 h-4 text-gray-400 mr-2" />
-                ) : (
-                  <>
-                    {priceChanges[selection.id] === 'up' && <ArrowUpCircle className="mr-1 w-4 h-4 text-green-500" />}
-                    {priceChanges[selection.id] === 'down' && <ArrowDownCircle className="mr-1 w-4 h-4 text-red-500" />}
-                  </>
-                )}
-                <span className={`font-semibold ${
-                  event.suspended ? 'text-gray-400' :
-                  priceChanges[selection.id] === 'up' ? 'text-green-500' :
-                  priceChanges[selection.id] === 'down' ? 'text-red-500' : ''
-                }`}>
-                  {selection.price.toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
+          <BetslipItem
+            key={selection.id}
+            event={event}
+            selection={selection}
+            stake={stake}
+            priceDirection={priceChanges[selection.id]}
+            onRemove={handleRemoveBet}
+            onStakeChange={handleUpdateStake}
+          />
         ))}
       </div>
 
@@ -134,4 +80,6 @@ export const Betslip = () => {
       </div>
     </div>
   );
-};
+});
+
+Betslip.displayName = 'Betslip';

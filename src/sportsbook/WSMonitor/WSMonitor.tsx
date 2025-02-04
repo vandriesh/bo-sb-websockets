@@ -1,14 +1,9 @@
 import React from 'react';
-import { Radio, AlertCircle, ChevronDown, ChevronUp, Clock, Calendar } from 'lucide-react';
-import { useWSMonitor } from './useWSMonitor';
-import { ChannelList } from './ChannelList';
-import { MonitorHeader } from './MonitorHeader';
-
-interface WSMonitorProps {
-  isConnected: boolean;
-  activeTab?: 'live' | 'upcoming';
-  position?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
-}
+import { Radio, AlertCircle } from 'lucide-react';
+import { useWSMonitor } from './hooks/useWSMonitor';
+import { ChannelList } from './components/ChannelList';
+import { MonitorHeader } from './components/MonitorHeader';
+import type { WSMonitorProps } from './types';
 
 export const WSMonitor: React.FC<WSMonitorProps> = ({ 
   isConnected,
@@ -26,7 +21,7 @@ export const WSMonitor: React.FC<WSMonitorProps> = ({
   }[position];
 
   return (
-    <div className={`fixed ${positionClasses} z-50 w-80 bg-white rounded-lg shadow-lg overflow-hidden`}>
+    <div className={`fixed ${positionClasses} z-50 w-80 bg-white rounded-lg shadow-lg overflow-hidden border`}>
       <MonitorHeader 
         isExpanded={isExpanded}
         setIsExpanded={setIsExpanded}

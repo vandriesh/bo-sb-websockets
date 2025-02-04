@@ -6,7 +6,6 @@ import { useEventSubscription } from '../hooks/useEventSubscription';
 
 export const EventDetails = () => {
   const { id } = useParams<{ id: string }>();
-  // Use stable selectors to prevent unnecessary re-renders
   const event = useSportsBookStore(React.useCallback(
     state => state.events.find(e => e.id === Number(id)),
     [id]
@@ -122,10 +121,10 @@ export const EventDetails = () => {
                           </>
                         )}
                         {event.suspended && <Lock className="mr-2 w-4 h-4" />}
-                        <span className={`text-2xl font-bold ${
+                        <span className={`px-2 py-1 rounded text-2xl font-bold ${
                           event.suspended ? 'text-gray-500' :
-                          priceChanges[selection.id] === 'up' ? 'text-green-500' :
-                          priceChanges[selection.id] === 'down' ? 'text-red-500' : ''
+                          priceChanges[selection.id] === 'up' ? 'text-green-500 animate-price-up' :
+                          priceChanges[selection.id] === 'down' ? 'text-red-500 animate-price-down' : ''
                         }`}>
                           {selection.price.toFixed(2)}
                         </span>

@@ -11,7 +11,6 @@ interface EventItemProps {
 }
 
 export const EventItem = React.memo(({ id, source }: EventItemProps) => {
-  // Use stable selectors to prevent unnecessary re-renders
   const event = useSportsBookStore(React.useCallback(
     state => state.events.find(e => e.id === Number(id)),
     [id]
@@ -20,11 +19,12 @@ export const EventItem = React.memo(({ id, source }: EventItemProps) => {
   const bets = useSportsBookStore(state => state.bets);
   const { addBet, removeBet } = useSportsBookStore();
 
-  // Setup event subscription
-  useEventSubscription(event, source);
-
   if (!event) return null;
 
+  // Subscribe to event updates with source
+  useEventSubscription(event, source);
+
+  // We know we always have at least one market with three selections
   const mainMarket = event.markets[0];
 
   const handleSelectionClick = React.useCallback((selection: Selection) => {
@@ -105,10 +105,10 @@ export const EventItem = React.memo(({ id, source }: EventItemProps) => {
               </>
             )}
             {event.suspended && <Lock className="mr-1 w-4 h-4" />}
-            <span className={`font-bold ${
+            <span className={`px-2 py-1 rounded font-bold ${
               event.suspended ? 'text-gray-500' :
-              priceChanges[selection.id] === 'up' ? 'text-green-500' :
-              priceChanges[selection.id] === 'down' ? 'text-red-500' : ''
+              priceChanges[selection.id] === 'up' ? 'text-green-500 animate-price-up' :
+              priceChanges[selection.id] === 'down' ? 'text-red-500 animate-price-down' : ''
             }`}>
               {selection.price.toFixed(2)}
             </span>
