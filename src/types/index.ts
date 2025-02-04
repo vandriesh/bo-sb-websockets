@@ -1,19 +1,18 @@
 export interface Selection {
-  id: string;
+  id: number;
   name: string;
   price: number;
 }
 
 export interface Event {
-  id: string;
+  id: number;
   name: string;
-  market: string;
+  market: number;
   selections: Selection[];
   timestamp: number;
   suspended?: boolean;
 }
 
-// WebSocket message types
 export type WebSocketMessageType = 'ODDS_UPDATE' | 'EVENT_UPDATE';
 
 export interface WebSocketMessage<T> {
@@ -22,14 +21,14 @@ export interface WebSocketMessage<T> {
 }
 
 export interface OddsUpdate {
-  id: string;
+  id: number;
   selections: Array<{
-    id: string;
+    id: number;
     price: number;
   }>;
 }
 
 export interface EventUpdate {
-  id: string;
+  id: number;
   suspended: boolean;
 }

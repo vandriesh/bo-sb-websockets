@@ -19,12 +19,34 @@ const logMessage = (source: 'bo' | 'sb', direction: 'in' | 'out', event: string,
   }
 };
 
-// Enhanced socket wrapper with better error handling
+// Simple channel validation
+const validateChannel = (channel: string): boolean => {
+  // Handle system channels
+  if (['connect', 'disconnect', 'error', 'reconnect'].includes(channel)) {
+    return true;
+  }
+
+  // Handle event channels
+  const match = channel.match(/^\*:Event:(\d+)$/);
+  if (!match) return false;
+  
+  const eventId = parseInt(match[1], 10);
+  return eventId >= 1 && eventId <= 999; // Event IDs: 1-999
+};
+
+// Enhanced socket wrapper with basic validation
 export const enhancedSocket = {
   socket,
   
-  subscribeToEvent: (eventId: string, callback: (event: Event) => void) => {
-    const channel = `event:${eventId}:update`;
+  subscribeToEvent: (eventId: number, callback: (event: Event) => void) => {
+    const channel = `*:Event:${eventId}`;
+    
+    // Validate channel format
+    if (!validateChannel(channel)) {
+      console.error('Invalid channel format:', channel);
+      return () => {};
+    }
+    
     logMessage('sb', 'out', 'subscribe', { channel });
     
     socket.on(channel, (data) => {
@@ -42,18 +64,26 @@ export const enhancedSocket = {
     };
   },
   
-  emitEventUpdate: (eventId: string, data: WebSocketMessage<any>) => {
+  emitEventUpdate: (eventId: number, data: WebSocketMessage<any>) => {
     try {
-      const channel = `event:${eventId}:update`;
+      const channel = `*:Event:${eventId}`;
+      
+      // Validate channel
+      if (!validateChannel(channel)) {
+        throw new Error('Invalid channel format');
+      }
+      
       logMessage('bo', 'out', channel, data);
-      socket.emit(channel, data);
+      // Changed to use 'event:update' event name to match server listener
+      socket.emit('event:update', channel, data);
     } catch (error) {
       console.error('Error emitting event update:', error);
+      throw error;
     }
   }
 };
 
-// Connection lifecycle events with better error handling
+// Connection lifecycle events
 socket.on('connect', () => {
   console.log('Connected to WebSocket server with ID:', socket.id);
   logMessage('bo', 'in', 'connect', { id: socket.id });
@@ -66,36 +96,10 @@ socket.on('disconnect', (reason) => {
   logMessage('sb', 'in', 'disconnect', { reason });
 });
 
-socket.on('connect_error', (error) => {
-  console.error('WebSocket connection error:', error);
-  logMessage('bo', 'in', 'connect_error', { error: error.message });
-  logMessage('sb', 'in', 'connect_error', { error: error.message });
-});
-
 socket.on('error', (error) => {
   console.error('WebSocket error:', error);
   logMessage('bo', 'in', 'error', { error: error.message });
   logMessage('sb', 'in', 'error', { error: error.message });
-});
-
-socket.io.on('error', (error) => {
-  console.error('Socket.IO error:', error);
-});
-
-socket.io.on('reconnect', (attempt) => {
-  console.log('Reconnected on attempt:', attempt);
-});
-
-socket.io.on('reconnect_attempt', (attempt) => {
-  console.log('Attempting to reconnect:', attempt);
-});
-
-socket.io.on('reconnect_error', (error) => {
-  console.error('Reconnection error:', error);
-});
-
-socket.io.on('reconnect_failed', () => {
-  console.error('Failed to reconnect');
 });
 
 export { socket };

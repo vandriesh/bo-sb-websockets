@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"npm run dev:sb\" \"npm run dev:bo\"",
+    "dev": "tsx watch src/server/index.ts",
+    "dev:all": "concurrently \"npm run server\" \"npm run dev:sb\" \"npm run dev:bo\"",
     "dev:sb": "vite --port 5173 --config vite.sportsbook.config.ts",
     "dev:bo": "vite --port 5175 --config vite.backoffice.config.ts",
     "server": "tsx watch src/server/index.ts",
