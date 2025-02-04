@@ -1,8 +1,8 @@
 import React from 'react';
-import { Terminal } from 'lucide-react';
+import { Terminal, Trash2, History } from 'lucide-react';
 
 interface LogMessage {
-  id: string; // Add unique ID
+  id: string;
   timestamp: number;
   direction: 'in' | 'out';
   event: string;
@@ -16,6 +16,7 @@ interface WSLoggerProps {
 
 export const WSLogger: React.FC<WSLoggerProps> = ({ title, maxMessages = 50 }) => {
   const [messages, setMessages] = React.useState<LogMessage[]>([]);
+  const [hiddenMessages, setHiddenMessages] = React.useState<LogMessage[]>([]);
   const [isExpanded, setIsExpanded] = React.useState(false);
   const logContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -24,7 +25,7 @@ export const WSLogger: React.FC<WSLoggerProps> = ({ title, maxMessages = 50 }) =
     setMessages(prev => {
       const newMessages = [
         {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Generate unique ID
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           timestamp: Date.now(),
           direction,
           event,
@@ -35,6 +36,18 @@ export const WSLogger: React.FC<WSLoggerProps> = ({ title, maxMessages = 50 }) =
       return newMessages;
     });
   }, [maxMessages]);
+
+  // Clear visible messages but keep them in hidden state
+  const clearMessages = () => {
+    setHiddenMessages(prev => [...messages, ...prev]);
+    setMessages([]);
+  };
+
+  // Show all messages including hidden ones
+  const showAllMessages = () => {
+    setMessages(prev => [...prev, ...hiddenMessages]);
+    setHiddenMessages([]);
+  };
 
   // Expose the addMessage function globally for the socket handlers
   React.useEffect(() => {
@@ -52,6 +65,8 @@ export const WSLogger: React.FC<WSLoggerProps> = ({ title, maxMessages = 50 }) =
     }
   }, [messages, isExpanded]);
 
+  const hasHiddenMessages = hiddenMessages.length > 0;
+
   return (
     <div className="fixed bottom-4 right-4 z-50 w-96 bg-gray-900 text-white rounded-lg shadow-lg">
       {/* Header */}
@@ -61,9 +76,38 @@ export const WSLogger: React.FC<WSLoggerProps> = ({ title, maxMessages = 50 }) =
       >
         <div className="flex items-center space-x-2">
           <Terminal className="w-4 h-4" />
-          <h3 className="font-medium">{title} WebSocket Log</h3>
+          <h3 className="font-medium">WS Logs</h3>
         </div>
-        <span className="text-xs text-gray-400">{messages.length} messages</span>
+        <div className="flex items-center space-x-2">
+          {messages.length > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                clearMessages();
+              }}
+              className="p-1 text-gray-400 hover:text-white transition-colors"
+              title="Clear messages"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+          {hasHiddenMessages && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                showAllMessages();
+              }}
+              className="p-1 text-gray-400 hover:text-white transition-colors"
+              title="Show all messages"
+            >
+              <History className="w-4 h-4" />
+            </button>
+          )}
+          <span className="text-xs text-gray-400">
+            {messages.length} message{messages.length !== 1 ? 's' : ''}
+            {hasHiddenMessages && ` (${hiddenMessages.length} hidden)`}
+          </span>
+        </div>
       </div>
 
       {/* Log Content */}
@@ -74,7 +118,7 @@ export const WSLogger: React.FC<WSLoggerProps> = ({ title, maxMessages = 50 }) =
         >
           {messages.map((msg) => (
             <div 
-              key={msg.id} // Use unique ID as key
+              key={msg.id}
               className="p-2 border-b border-gray-800 hover:bg-gray-800"
             >
               <div className="flex items-center justify-between text-xs text-gray-400 mb-1">

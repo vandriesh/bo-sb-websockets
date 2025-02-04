@@ -5,9 +5,12 @@ import { WsMessageType } from '../../types';
 let marketSubscriptions: (() => void)[] = [];
 let eventSubscriptions: (() => void)[] = [];
 
-export const initializeSocketListeners = () => {
+export const setupSocketSubscriptions = () => {
   const store = useSportsBookStore.getState();
   const { events, handlePriceChange, handleEventUpdate } = store;
+
+  // Cleanup existing subscriptions first
+  cleanupSocketListeners();
 
   // Subscribe to all unique markets
   const uniqueMarkets = new Set(events.flatMap(event => 
@@ -44,6 +47,10 @@ export const initializeSocketListeners = () => {
     });
     eventSubscriptions.push(unsubscribe);
   });
+};
+
+export const initializeSocketListeners = () => {
+  setupSocketSubscriptions();
 };
 
 export const cleanupSocketListeners = () => {

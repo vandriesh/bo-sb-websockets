@@ -5,6 +5,7 @@ import { EventList } from './events/EventList';
 import { EventDetails } from './events/EventDetails';
 import { Betslip } from './betslip/Betslip';
 import { WSLogger } from '../common/components/WSLogger';
+import { SportsbookConnection } from './components/SportsbookConnection';
 import { initializeSocketListeners, cleanupSocketListeners } from './events/useEventsSocket';
 import '../index.css';
 
@@ -22,6 +23,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <div className="min-h-screen bg-gray-100">
+          <SportsbookConnection />
           <nav className="bg-white shadow-lg mb-8">
             <div className="max-w-7xl mx-auto px-4">
               <div className="flex h-16 items-center">

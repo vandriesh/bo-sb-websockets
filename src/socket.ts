@@ -1,16 +1,21 @@
 import { io } from 'socket.io-client';
 import type { Event, WebSocketMessage } from './types';
 
-// Create socket with WebContainer-compatible configuration
+// Create socket with improved configuration
 const socket = io('http://localhost:3001', {
   transports: ['websocket', 'polling'],
-  path: '/socket.io/',
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
-  reconnectionAttempts: 5,
-  timeout: 10000,
-  autoConnect: true
+  reconnectionAttempts: Infinity,
+  timeout: 20000,
+  autoConnect: true,
+  // Add better error handling
+  forceNew: true,
+  reconnection: true
 });
+
+// Track active subscriptions
+const activeSubscriptions = new Map<string, () => void>();
 
 // Helper to log messages to the appropriate logger
 const logMessage = (source: 'bo' | 'sb', direction: 'in' | 'out', event: string, data: any) => {
@@ -44,7 +49,7 @@ const validateChannel = (channel: string): boolean => {
   return false;
 };
 
-// Enhanced socket wrapper with basic validation and connection state
+// Enhanced socket wrapper with better connection handling
 export const enhancedSocket = {
   socket,
   
@@ -58,19 +63,25 @@ export const enhancedSocket = {
     
     logMessage('sb', 'out', 'subscribe', { channel });
     
-    socket.on(channel, (data) => {
+    const handler = (data: any) => {
       try {
         logMessage('sb', 'in', channel, data);
         callback(data);
       } catch (error) {
         console.error('Error in market subscription callback:', error);
       }
-    });
-
-    return () => {
-      logMessage('sb', 'out', 'unsubscribe', { channel });
-      socket.off(channel);
     };
+
+    socket.on(channel, handler);
+    
+    // Track subscription
+    const cleanup = () => {
+      socket.off(channel, handler);
+      activeSubscriptions.delete(channel);
+    };
+    activeSubscriptions.set(channel, cleanup);
+
+    return cleanup;
   },
 
   subscribeToEvent: (eventId: number, callback: (data: any) => void) => {
@@ -83,19 +94,25 @@ export const enhancedSocket = {
     
     logMessage('sb', 'out', 'subscribe', { channel });
     
-    socket.on(channel, (data) => {
+    const handler = (data: any) => {
       try {
         logMessage('sb', 'in', channel, data);
         callback(data);
       } catch (error) {
         console.error('Error in event subscription callback:', error);
       }
-    });
-
-    return () => {
-      logMessage('sb', 'out', 'unsubscribe', { channel });
-      socket.off(channel);
     };
+
+    socket.on(channel, handler);
+    
+    // Track subscription
+    const cleanup = () => {
+      socket.off(channel, handler);
+      activeSubscriptions.delete(channel);
+    };
+    activeSubscriptions.set(channel, cleanup);
+
+    return cleanup;
   },
   
   emitPriceUpdate: (marketId: number, data: WebSocketMessage<any>) => {
@@ -128,6 +145,15 @@ export const enhancedSocket = {
       console.error('Error emitting event update:', error);
       throw error;
     }
+  },
+
+  // Helper to get active subscriptions
+  getActiveSubscriptions: () => Array.from(activeSubscriptions.keys()),
+
+  // Helper to cleanup all subscriptions
+  cleanupAllSubscriptions: () => {
+    activeSubscriptions.forEach(cleanup => cleanup());
+    activeSubscriptions.clear();
   }
 };
 
@@ -148,6 +174,8 @@ socket.on('disconnect', (reason) => {
   console.log('Disconnected from WebSocket server:', reason);
   logMessage('bo', 'in', 'disconnect', { reason });
   logMessage('sb', 'in', 'disconnect', { reason });
+  // Cleanup subscriptions on disconnect
+  enhancedSocket.cleanupAllSubscriptions();
 });
 
 socket.on('error', (error) => {
@@ -172,6 +200,8 @@ socket.on('reconnect_error', (error) => {
 
 socket.on('reconnect_failed', () => {
   console.error('WebSocket reconnection failed');
+  // Cleanup subscriptions on reconnection failure
+  enhancedSocket.cleanupAllSubscriptions();
 });
 
 export { socket };
