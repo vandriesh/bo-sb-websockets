@@ -63,7 +63,7 @@ export const useEventsStore = create<BOEventsState>()(
         );
         
         enhancedSocket.emitEventUpdate(eventId, {
-          type: WsMessageType.EventUpdate,
+          type: WsMessageType.EventStatusUpdate,
           payload: {
             id: eventId,
             suspended

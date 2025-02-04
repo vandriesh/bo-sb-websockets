@@ -20,7 +20,7 @@ export interface Event {
 
 export enum WsMessageType {
   SelectionPriceChange = 'SelectionPriceChange',
-  EventUpdate = 'EVENT_UPDATE'
+  EventStatusUpdate = 'EventStatusUpdate'
 }
 
 export interface SelectionPriceChangePayload {

@@ -38,7 +38,7 @@ export const initializeSocketListeners = () => {
     const unsubscribe = enhancedSocket.subscribeToEvent(event.id, (message: any) => {
       console.log(`🎮 [SB] Received update for event ${event.id}:`, message);
       
-      if (message.type === WsMessageType.EventUpdate) {
+      if (message.type === WsMessageType.EventStatusUpdate) {
         handleEventUpdate(message.payload);
       }
     });
