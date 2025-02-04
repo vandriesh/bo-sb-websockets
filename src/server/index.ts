@@ -2,9 +2,8 @@ import { createServer } from 'http';
 import express from 'express';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import { mockEvents } from '../__fixtures__/mock_data';
 import { getEvents } from './api/events';
-import type { Event, WebSocketMessage, OddsUpdate, EventUpdate } from '../types';
+import type { Event, WebSocketMessage, SelectionPriceChangePayload, EventUpdatePayload } from '../types';
 
 const app = express();
 const httpServer = createServer(app);
@@ -32,14 +31,11 @@ const io = new Server(httpServer, {
 // API Routes
 app.get('/api/events', getEvents);
 
-// Use mock events data
-let events: Event[] = mockEvents;
-
 io.on('connection', (socket) => {
   console.log('⚡️ WebSocket connected:', socket.id);
 
   // Handle event-specific updates
-  socket.on('event:update', (channel: string, message: WebSocketMessage<OddsUpdate | EventUpdate>) => {
+  socket.on('event:update', (channel: string, message: WebSocketMessage<SelectionPriceChangePayload | EventUpdatePayload>) => {
     try {
       console.log('⚡️ WebSocket received update:', { channel, message });
 
@@ -51,38 +47,34 @@ io.on('connection', (socket) => {
       }
       
       const eventId = parseInt(match[1], 10);
-      const event = events.find(e => e.id === eventId);
       
-      if (!event) {
-        console.log('⚡️ WebSocket error: Event not found:', eventId);
-        return;
-      }
-
       console.log('⚡️ WebSocket processing event update:', { eventId, message });
       
       switch (message.type) {
-        case 'ODDS_UPDATE': {
-          const oddsUpdate = message.payload as OddsUpdate;
-          oddsUpdate.selections.forEach(update => {
-            const selection = event.selections.find(sel => sel.id === update.id);
-            if (selection) {
-              selection.price = update.price;
-              console.log('⚡️ WebSocket updated selection price:', { 
-                eventId, 
-                selectionId: update.id, 
-                newPrice: update.price 
-              });
+        case 'SelectionPriceChange': {
+          const priceChange = message.payload as SelectionPriceChangePayload;
+          // Broadcast the price change to all OTHER clients (excluding sender)
+          socket.broadcast.emit(`*:Event:${eventId}`, {
+            type: 'SelectionPriceChange',
+            payload: {
+              eventId,
+              marketId: priceChange.marketId,
+              selectionId: priceChange.selectionId,
+              price: priceChange.price
             }
           });
           break;
         }
         
         case 'EVENT_UPDATE': {
-          const eventUpdate = message.payload as EventUpdate;
-          event.suspended = eventUpdate.suspended;
-          console.log('⚡️ WebSocket updated event suspension:', { 
-            eventId, 
-            suspended: eventUpdate.suspended 
+          const eventUpdate = message.payload as EventUpdatePayload;
+          // Broadcast the event update to all OTHER clients (excluding sender)
+          socket.broadcast.emit(`*:Event:${eventId}`, {
+            type: 'EVENT_UPDATE',
+            payload: {
+              id: eventId,
+              suspended: eventUpdate.suspended
+            }
           });
           break;
         }
@@ -92,11 +84,7 @@ io.on('connection', (socket) => {
           return;
       }
       
-      event.timestamp = Date.now();
-      
-      // Broadcast the updated event to all OTHER clients (excluding sender)
-      socket.broadcast.emit(`*:Event:${eventId}`, event);
-      console.log('⚡️ WebSocket broadcast:', { channel: `*:Event:${eventId}`, event });
+      console.log('⚡️ WebSocket broadcast:', { channel: `*:Event:${eventId}`, message });
     } catch (error) {
       console.error('⚡️ WebSocket error processing message:', error);
       socket.emit('error', { message: 'Error processing message' });

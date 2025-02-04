@@ -42,4 +42,4 @@ export const EventList = () => {
       </div>
     </div>
   );
-}
+};

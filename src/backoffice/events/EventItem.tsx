@@ -16,6 +16,9 @@ export const EventItem = React.memo(({ event }: EventItemProps) => {
     setSuspended(event.id, !event.suspended);
   };
 
+  // We know we always have at least one market with three selections
+  const mainMarket = event.markets[0];
+
   return (
     <div className="grid grid-cols-[1fr,repeat(3,180px),80px] gap-4 p-4 items-center">
       <div className="font-medium">
@@ -24,10 +27,10 @@ export const EventItem = React.memo(({ event }: EventItemProps) => {
           <span className="ml-2 text-sm text-red-500">(Suspended)</span>
         )}
       </div>
-      {event.selections.map((selection) => (
+      {mainMarket.selections.map((selection) => (
         <div key={selection.id} className="flex items-center justify-center space-x-2">
           <button
-            onClick={() => handlePriceUpdate(selection.id, selection.price - 0.1, 'down')}
+            onClick={() => handlePriceUpdate(mainMarket.id, selection.id, selection.price - 0.1, 'down')}
             className={`w-10 h-8 flex items-center justify-center bg-red-100 text-red-600 rounded hover:bg-red-200 ${
               event.suspended ? 'opacity-50 cursor-not-allowed' : ''
             }`}
@@ -43,7 +46,7 @@ export const EventItem = React.memo(({ event }: EventItemProps) => {
             {selection.price.toFixed(2)}
           </span>
           <button
-            onClick={() => handlePriceUpdate(selection.id, selection.price + 0.1, 'up')}
+            onClick={() => handlePriceUpdate(mainMarket.id, selection.id, selection.price + 0.1, 'up')}
             className={`w-10 h-8 flex items-center justify-center bg-green-100 text-green-600 rounded hover:bg-green-200 ${
               event.suspended ? 'opacity-50 cursor-not-allowed' : ''
             }`}
