@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BackOffice } from './components/BackOffice';
+import { EventList } from './events/EventList';
 import { WSLogger } from '../common/components/WSLogger';
-import { initializeSocketListeners, cleanupSocketListeners } from '../common/socket/bo-socket';
+import { initializeSocketListeners, cleanupSocketListeners } from './events/useEventsSocket';
 import '../index.css';
 
 const queryClient = new QueryClient();
@@ -17,8 +17,8 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-gray-100">
-        <BackOffice />
+      <div className="min-h-screen bg-gray-100 p-8">
+        <EventList />
         <WSLogger title="Back Office" />
       </div>
     </QueryClientProvider>
