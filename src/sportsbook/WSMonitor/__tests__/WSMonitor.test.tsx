@@ -24,11 +24,17 @@ describe('WSMonitor Component', () => {
     store.addSubscription(eventChannel, source);
     store.addSubscription(marketChannel, source);
 
-    render(<WSMonitor isConnected={true} position="bottom-left" />);
+    const { container } = render(<WSMonitor isConnected={true} position="bottom-left" />);
 
-    expect(screen.getByText(eventChannel)).toBeInTheDocument();
-    expect(screen.getByText(marketChannel)).toBeInTheDocument();
-    expect(screen.getByText(source)).toBeInTheDocument();
+    // expect(screen.getByText(eventChannel)).toBeInTheDocument();
+    // expect(screen.getByText(marketChannel)).toBeInTheDocument();
+    expect(container).toHaveTextContent([
+      'Active Subscriptions2 total',
+      'Event Channels (1)',
+      '*:Event:1event_list',
+      'Market Channels (1)',
+      '*:Market:1000event_list'
+    ].join(''));
   });
 
   test('should display connection status', () => {
