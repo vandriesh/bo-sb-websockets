@@ -4,31 +4,37 @@ export interface Selection {
   price: number;
 }
 
+export interface Market {
+  id: number;
+  name: string;
+  selections: Selection[];
+}
+
 export interface Event {
   id: number;
   name: string;
-  market: number;
-  selections: Selection[];
+  markets: Market[];
   timestamp: number;
   suspended?: boolean;
 }
 
-export type WebSocketMessageType = 'ODDS_UPDATE' | 'EVENT_UPDATE';
-
-export interface WebSocketMessage<T> {
-  type: WebSocketMessageType;
-  payload: T;
+export enum WsMessageType {
+  SelectionPriceChange = 'SelectionPriceChange',
+  EventUpdate = 'EVENT_UPDATE'
 }
 
-export interface OddsUpdate {
-  id: number;
-  selections: Array<{
-    id: number;
-    price: number;
-  }>;
+export interface SelectionPriceChangePayload {
+  marketId: number;
+  selectionId: number;
+  price: number;
 }
 
-export interface EventUpdate {
+export interface EventUpdatePayload {
   id: number;
   suspended: boolean;
+}
+
+export interface WebSocketMessage<T> {
+  type: WsMessageType;
+  payload: T;
 }

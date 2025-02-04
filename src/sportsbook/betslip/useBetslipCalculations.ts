@@ -20,16 +20,20 @@ export const useBetslipCalculations = (
     return bets
       .map(bet => {
         const event = events.find(e => e.id === bet.eventId);
-        const selection = event?.selections.find(s => s.id === bet.selectionId);
+        // Find selection across all markets
+        const selection = event?.markets
+          .flatMap(market => market.selections)
+          .find(s => s.id === bet.selectionId);
+        
+        if (!event || !selection) return null;
+        
         return {
           ...bet,
           event,
           selection
         };
       })
-      .filter((bet): bet is BetWithData => 
-        bet.event !== undefined && bet.selection !== undefined
-      );
+      .filter((bet): bet is BetWithData => bet !== null);
   }, [bets, events]);
 
   const totalStake = useMemo(() => 

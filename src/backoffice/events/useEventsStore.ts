@@ -2,10 +2,11 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { createEventsSlice, type EventsSlice } from '../../common/store/createEventsSlice';
 import { enhancedSocket } from '../../socket';
+import { WsMessageType } from '../../types';
 
 interface BOEventsState extends EventsSlice {
   updating: string | null;
-  updateSelectionPrice: (eventId: string, selectionId: string, newPrice: number) => void;
+  updateSelectionPrice: (eventId: string, marketId: number, selectionId: string, newPrice: number) => void;
   setUpdating: (id: string | null) => void;
   setSuspended: (eventId: string, suspended: boolean) => void;
 }
@@ -15,19 +16,27 @@ export const useEventsStore = create<BOEventsState>()(
     (set) => ({
       ...createEventsSlice(set, 'boEvents'),
       updating: null,
-      updateSelectionPrice: (eventId, selectionId, newPrice) => {
-        console.log('Updating selection price:', { eventId, selectionId, newPrice });
+      updateSelectionPrice: (eventId, marketId, selectionId, newPrice) => {
+        console.log('Updating selection price:', { eventId, marketId, selectionId, newPrice });
         set(
           (state) => ({
             events: state.events.map(event => {
               if (event.id === eventId) {
                 return {
                   ...event,
-                  selections: event.selections.map(selection => 
-                    selection.id === selectionId 
-                      ? { ...selection, price: newPrice }
-                      : selection
-                  )
+                  markets: event.markets.map(market => {
+                    if (market.id === marketId) {
+                      return {
+                        ...market,
+                        selections: market.selections.map(selection => 
+                          selection.id === selectionId 
+                            ? { ...selection, price: newPrice }
+                            : selection
+                        )
+                      };
+                    }
+                    return market;
+                  })
                 };
               }
               return event;
@@ -54,7 +63,7 @@ export const useEventsStore = create<BOEventsState>()(
         );
         
         enhancedSocket.emitEventUpdate(eventId, {
-          type: 'EVENT_UPDATE',
+          type: WsMessageType.EventUpdate,
           payload: {
             id: eventId,
             suspended

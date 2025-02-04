@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { createEventsSlice, type EventsSlice } from '../../common/store/createEventsSlice';
+import type { SelectionPriceChangePayload, EventUpdatePayload, WsMessageType } from '../../types';
 
 interface BetslipBet {
   eventId: string;
@@ -19,12 +20,16 @@ interface SportsBookState extends EventsSlice {
   removeBetsByEventId: (eventId: string) => void;
   updateStake: (selectionId: string, stake: number) => void;
   clearBetslip: () => void;
+
+  // New methods for handling WebSocket updates
+  handlePriceChange: (eventId: string, payload: SelectionPriceChangePayload) => void;
+  handleEventUpdate: (payload: EventUpdatePayload) => void;
 }
 
 export const useSportsBookStore = create<SportsBookState>()(
   devtools(
     persist(
-      (set) => ({
+      (set, get) => ({
         ...createEventsSlice(set, 'sportsbook'),
         
         priceChanges: {},
@@ -93,6 +98,71 @@ export const useSportsBookStore = create<SportsBookState>()(
         },
         clearBetslip: () => {
           set({ bets: [] }, false, 'sportsbook/clear');
+        },
+
+        // New handlers for WebSocket updates
+        handlePriceChange: (eventId, payload) => {
+          const { marketId, selectionId, price } = payload;
+          const oldPrice = get().events
+            .find(e => e.id === eventId)
+            ?.markets
+            .find(m => m.id === marketId)
+            ?.selections
+            .find(s => s.id === selectionId)
+            ?.price;
+
+          if (oldPrice !== undefined && price !== oldPrice) {
+            // Set price change direction
+            const direction = price > oldPrice ? 'up' : 'down';
+            get().setPriceChange(selectionId.toString(), direction);
+
+            // Clear price change indicator after delay
+            setTimeout(() => {
+              get().clearPriceChange(selectionId.toString());
+            }, 2000);
+          }
+
+          // Update the price in the store
+          set(
+            (state) => ({
+              events: state.events.map(event => {
+                if (event.id === eventId) {
+                  return {
+                    ...event,
+                    markets: event.markets.map(market => {
+                      if (market.id === marketId) {
+                        return {
+                          ...market,
+                          selections: market.selections.map(selection => 
+                            selection.id === selectionId 
+                              ? { ...selection, price }
+                              : selection
+                          )
+                        };
+                      }
+                      return market;
+                    })
+                  };
+                }
+                return event;
+              })
+            }),
+            false,
+            'sportsbook/handlePriceChange'
+          );
+        },
+
+        handleEventUpdate: (payload) => {
+          const { id, suspended } = payload;
+          set(
+            (state) => ({
+              events: state.events.map(event =>
+                event.id === id ? { ...event, suspended } : event
+              )
+            }),
+            false,
+            'sportsbook/handleEventUpdate'
+          );
         }
       }),
       {

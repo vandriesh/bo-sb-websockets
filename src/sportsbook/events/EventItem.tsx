@@ -17,6 +17,9 @@ export const EventItem: React.FC<EventItemProps> = ({ id }) => {
     return null;
   }
 
+  // We know we always have at least one market with three selections
+  const mainMarket = event.markets[0];
+
   const handleSelectionClick = (selection: Selection) => {
     const isSelected = bets.some(bet => bet.selectionId === selection.id);
     if (isSelected) {
@@ -40,7 +43,7 @@ export const EventItem: React.FC<EventItemProps> = ({ id }) => {
           </span>
         )}
       </Link>
-      {event.selections.map((selection) => {
+      {mainMarket.selections.map((selection) => {
         const isSelected = bets.some(bet => bet.selectionId === selection.id);
         return (
           <button
