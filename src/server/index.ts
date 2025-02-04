@@ -10,21 +10,23 @@ const httpServer = createServer(app);
 
 // Configure CORS for both HTTP and WebSocket
 const corsOptions = {
-  origin: "*",
+  origin: "*", // Allow all origins in WebContainer
   methods: ["GET", "POST"],
-  credentials: false
+  credentials: false // Must be false for WebContainer
 };
 
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Configure Socket.IO with CORS and better error handling
+// Configure Socket.IO with WebContainer-compatible settings
 const io = new Server(httpServer, {
   cors: corsOptions,
   transports: ['websocket', 'polling'],
-  pingTimeout: 30000,
-  pingInterval: 25000,
+  path: '/socket.io/',
   connectTimeout: 10000,
+  pingTimeout: 5000,
+  pingInterval: 10000,
+  serveClient: false,
   allowEIO3: true
 });
 
@@ -34,60 +36,73 @@ app.get('/api/events', getEvents);
 io.on('connection', (socket) => {
   console.log('⚡️ WebSocket connected:', socket.id);
 
-  // Handle event-specific updates
-  socket.on('event:update', (channel: string, message: WebSocketMessage<SelectionPriceChangePayload | EventUpdatePayload>) => {
+  // Send initial connection acknowledgment
+  socket.emit('connect_ack', { id: socket.id });
+
+  // Handle market-specific price updates
+  socket.on('market:update', (channel: string, message: WebSocketMessage<SelectionPriceChangePayload>) => {
     try {
-      console.log('⚡️ WebSocket received update:', { channel, message });
+      console.log('⚡️ WebSocket received market update:', { channel, message });
+
+      // Parse market ID from channel
+      const match = channel.match(/\*:Market:(\d+)/);
+      if (!match) {
+        console.log('⚡️ WebSocket error: Invalid market channel format:', channel);
+        return;
+      }
+      
+      const marketId = parseInt(match[1], 10);
+      
+      if (message.type === 'SelectionPriceChange') {
+        const priceChange = message.payload;
+        // Broadcast the price change to all OTHER clients (excluding sender)
+        socket.broadcast.emit(channel, {
+          type: 'SelectionPriceChange',
+          payload: {
+            marketId,
+            selectionId: priceChange.selectionId,
+            price: priceChange.price
+          }
+        });
+        
+        console.log('⚡️ WebSocket broadcast price change:', { channel, message });
+      }
+    } catch (error) {
+      console.error('⚡️ WebSocket error processing market update:', error);
+      socket.emit('error', { message: 'Error processing market update' });
+    }
+  });
+
+  // Handle event-specific updates (e.g., suspension)
+  socket.on('event:update', (channel: string, message: WebSocketMessage<EventUpdatePayload>) => {
+    try {
+      console.log('⚡️ WebSocket received event update:', { channel, message });
 
       // Parse event ID from channel
       const match = channel.match(/\*:Event:(\d+)/);
       if (!match) {
-        console.log('⚡️ WebSocket error: Invalid channel format:', channel);
+        console.log('⚡️ WebSocket error: Invalid event channel format:', channel);
         return;
       }
       
       const eventId = parseInt(match[1], 10);
       
-      console.log('⚡️ WebSocket processing event update:', { eventId, message });
-      
-      switch (message.type) {
-        case 'SelectionPriceChange': {
-          const priceChange = message.payload as SelectionPriceChangePayload;
-          // Broadcast the price change to all OTHER clients (excluding sender)
-          socket.broadcast.emit(`*:Event:${eventId}`, {
-            type: 'SelectionPriceChange',
-            payload: {
-              eventId,
-              marketId: priceChange.marketId,
-              selectionId: priceChange.selectionId,
-              price: priceChange.price
-            }
-          });
-          break;
-        }
+      if (message.type === 'EVENT_UPDATE') {
+        const eventUpdate = message.payload;
+        // Broadcast the event update to all OTHER clients (excluding sender)
+        socket.broadcast.emit(channel, {
+          type: 'EVENT_UPDATE',
+          payload: {
+            id: eventId,
+            suspended: eventUpdate.suspended
+          }
+        });
         
-        case 'EVENT_UPDATE': {
-          const eventUpdate = message.payload as EventUpdatePayload;
-          // Broadcast the event update to all OTHER clients (excluding sender)
-          socket.broadcast.emit(`*:Event:${eventId}`, {
-            type: 'EVENT_UPDATE',
-            payload: {
-              id: eventId,
-              suspended: eventUpdate.suspended
-            }
-          });
-          break;
-        }
-        
-        default:
-          console.log('⚡️ WebSocket unknown message type:', message);
-          return;
+        console.log('⚡️ WebSocket broadcast event update:', { channel, message });
       }
-      
-      console.log('⚡️ WebSocket broadcast:', { channel: `*:Event:${eventId}`, message });
     } catch (error) {
-      console.error('⚡️ WebSocket error processing message:', error);
-      socket.emit('error', { message: 'Error processing message' });
+      console.error('⚡️ WebSocket error processing event update:', error);
+      socket.emit('error', { message: 'Error processing event update' });
     }
   });
 
