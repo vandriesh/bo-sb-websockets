@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Lock, Unlock } from 'lucide-react';
+import { RefreshCw, Lock, Unlock, Clock } from 'lucide-react';
 import type { Event } from '../../types';
 import { useEventsStore } from './useEventsStore';
 import { usePriceUpdate } from './usePriceUpdate';
@@ -19,14 +19,40 @@ export const EventItem = React.memo(({ event }: EventItemProps) => {
   // We know we always have at least one market with three selections
   const mainMarket = event.markets[0];
 
+  const formatTime = (date: string) => {
+    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   return (
     <div className="grid grid-cols-[1fr,repeat(3,180px),80px] gap-4 p-4 items-center">
-      <div className="font-medium">
-        {event.name}
-        {event.suspended && (
-          <span className="ml-2 text-sm text-red-500">(Suspended)</span>
-        )}
+      <div>
+        <div className="font-medium">
+          <span className="text-gray-500 mr-2">[{event.id}]</span>
+          {event.name}
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          {event.status === 'live' ? (
+            <>
+              <span className="inline-flex items-center text-red-500 text-sm">
+                <Clock className="w-3 h-3 mr-1" />
+                {event.timeElapsed}'
+              </span>
+              <span className="text-sm font-semibold">
+                {event.score?.home} - {event.score?.away}
+              </span>
+            </>
+          ) : (
+            <span className="text-sm text-gray-500">
+              {formatTime(event.startTime)}
+            </span>
+          )}
+          
+          {event.suspended && (
+            <span className="text-sm text-red-500">(Suspended)</span>
+          )}
+        </div>
       </div>
+
       {mainMarket.selections.map((selection) => (
         <div key={selection.id} className="flex items-center justify-center space-x-2">
           <button

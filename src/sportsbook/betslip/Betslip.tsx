@@ -1,11 +1,15 @@
 import React from 'react';
-import { X, Trash2, ArrowUpCircle, ArrowDownCircle, Lock } from 'lucide-react';
+import { X, Trash2, ArrowUpCircle, ArrowDownCircle, Lock, Clock } from 'lucide-react';
 import { useSportsBookStore } from '../events/useEventsStore';
 import { useBetslipCalculations } from './useBetslipCalculations';
+import { useBetslipSubscriptions } from './useBetslipSubscriptions';
 
 export const Betslip = () => {
   const { bets, events, priceChanges, removeBet, updateStake, clearBetslip } = useSportsBookStore();
   const { betsWithData, totalStake, potentialWinnings, hasActiveBets } = useBetslipCalculations(bets, events);
+
+  // Subscribe to all events in betslip
+  useBetslipSubscriptions(betsWithData.map(({ event }) => event));
 
   if (bets.length === 0) {
     return (
@@ -36,6 +40,7 @@ export const Betslip = () => {
             <div className="flex justify-between items-start mb-2">
               <div>
                 <div className="flex items-center gap-2">
+                  <span className="text-gray-500">[{event.id}]</span>
                   <p className="font-medium">{event.name}</p>
                   {event.suspended && (
                     <span className="inline-flex items-center text-red-500 text-sm">
@@ -44,7 +49,24 @@ export const Betslip = () => {
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-600">{selection.name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  {event.status === 'live' ? (
+                    <>
+                      <span className="inline-flex items-center text-red-500 text-sm">
+                        <Clock className="w-3 h-3 mr-1" />
+                        {event.timeElapsed}'
+                      </span>
+                      <span className="text-sm font-semibold">
+                        {event.score?.home} - {event.score?.away}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-sm text-gray-500">
+                      {new Date(event.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-600 mt-1">{selection.name}</p>
               </div>
               <button
                 onClick={() => removeBet(selection.id)}

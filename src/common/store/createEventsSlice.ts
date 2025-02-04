@@ -5,7 +5,7 @@ export interface EventsSlice {
   events: Event[];
   setEvents: (events: Event[]) => void;
   updateEvent: (updatedEvent: Event) => void;
-  updateSuspendedState: (eventId: string, suspended: boolean) => void;
+  updateSuspendedState: (eventId: number, suspended: boolean) => void;
 }
 
 export const createEventsSlice = <T extends EventsSlice>(
@@ -15,10 +15,11 @@ export const createEventsSlice = <T extends EventsSlice>(
 ): EventsSlice => ({
   events: [],
   setEvents: (events) => {
-    console.log(`${storeName}: Setting events:`, events);
+    console.log(`📦 [${storeName}] Setting events:`, events);
     set(
       (state) => {
-        const newState = { events } as T;
+        const newState = { ...state, events } as T;
+        console.log(`📦 [${storeName}] New state:`, newState);
         onStateChange?.(newState);
         return newState;
       },
@@ -27,14 +28,16 @@ export const createEventsSlice = <T extends EventsSlice>(
     );
   },
   updateEvent: (updatedEvent) => {
-    console.log(`${storeName}: Updating event:`, updatedEvent);
+    console.log(`📦 [${storeName}] Updating event:`, updatedEvent);
     set(
       (state) => {
         const newState = {
-          events: (state as T).events.map(event => 
+          ...state,
+          events: state.events.map(event => 
             event.id === updatedEvent.id ? updatedEvent : event
           )
         } as T;
+        console.log(`📦 [${storeName}] New state after update:`, newState);
         onStateChange?.(newState);
         return newState;
       },
@@ -43,14 +46,16 @@ export const createEventsSlice = <T extends EventsSlice>(
     );
   },
   updateSuspendedState: (eventId, suspended) => {
-    console.log(`${storeName}: Updating suspended state:`, { eventId, suspended });
+    console.log(`📦 [${storeName}] Updating suspended state:`, { eventId, suspended });
     set(
       (state) => {
         const newState = {
-          events: (state as T).events.map(event =>
+          ...state,
+          events: state.events.map(event =>
             event.id === eventId ? { ...event, suspended } : event
           )
         } as T;
+        console.log(`📦 [${storeName}] New state after suspension update:`, newState);
         onStateChange?.(newState);
         return newState;
       },

@@ -17,8 +17,8 @@ export const setupSocketSubscriptions = () => {
     event.markets.map(market => market.id)
   ));
 
+  console.log('🎮 [SB] Setting up market subscriptions:', Array.from(uniqueMarkets));
   uniqueMarkets.forEach(marketId => {
-    console.log(`🎮 [SB] Setting up listener for market: ${marketId}`);
     const unsubscribe = enhancedSocket.subscribeToMarket(marketId, (message: any) => {
       console.log(`🎮 [SB] Received update for market ${marketId}:`, message);
       
@@ -35,9 +35,9 @@ export const setupSocketSubscriptions = () => {
     marketSubscriptions.push(unsubscribe);
   });
 
-  // Subscribe to events for suspension updates
+  // Subscribe to all events for status updates
+  console.log('🎮 [SB] Setting up event subscriptions:', events.map(e => e.id));
   events.forEach(event => {
-    console.log(`🎮 [SB] Setting up listener for event: ${event.id}`);
     const unsubscribe = enhancedSocket.subscribeToEvent(event.id, (message: any) => {
       console.log(`🎮 [SB] Received update for event ${event.id}:`, message);
       

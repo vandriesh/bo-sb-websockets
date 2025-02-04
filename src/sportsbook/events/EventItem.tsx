@@ -1,14 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpCircle, ArrowDownCircle, Lock } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, Lock, Clock } from 'lucide-react';
 import { useSportsBookStore } from './useEventsStore';
+import { useEventSubscription } from '../hooks/useEventSubscription';
 import type { Selection } from '../../types';
 
 interface EventItemProps {
   id: string;
+  source: 'event_list' | 'event_betslip';
 }
 
-export const EventItem: React.FC<EventItemProps> = ({ id }) => {
+export const EventItem: React.FC<EventItemProps> = ({ id, source }) => {
   const { events, priceChanges, bets, addBet, removeBet } = useSportsBookStore();
   
   const event = events.find(e => e.id === id);
@@ -16,6 +18,9 @@ export const EventItem: React.FC<EventItemProps> = ({ id }) => {
   if (!event) {
     return null;
   }
+
+  // Subscribe to event updates with source
+  useEventSubscription(event, source);
 
   // We know we always have at least one market with three selections
   const mainMarket = event.markets[0];
@@ -29,20 +34,47 @@ export const EventItem: React.FC<EventItemProps> = ({ id }) => {
     }
   };
 
+  const formatTime = (date: string) => {
+    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   return (
     <div className="grid grid-cols-[1fr,repeat(3,120px)] gap-4 p-4 items-center">
-      <Link 
-        to={`/${event.id}`}
-        className="font-medium hover:text-blue-600"
-      >
-        {event.name}
-        {event.suspended && (
-          <span className="ml-2 inline-flex items-center text-red-500 text-sm">
-            <Lock className="w-4 h-4 mr-1" />
-            Suspended
-          </span>
-        )}
-      </Link>
+      <div>
+        <Link 
+          to={`/${event.id}`}
+          className="font-medium hover:text-blue-600"
+        >
+          <span className="text-gray-500 mr-2">[{event.id}]</span>
+          {event.name}
+        </Link>
+        
+        <div className="flex items-center gap-2 mt-1">
+          {event.status === 'live' ? (
+            <>
+              <span className="inline-flex items-center text-red-500 text-sm">
+                <Clock className="w-3 h-3 mr-1" />
+                {event.timeElapsed}'
+              </span>
+              <span className="text-sm font-semibold">
+                {event.score?.home} - {event.score?.away}
+              </span>
+            </>
+          ) : (
+            <span className="text-sm text-gray-500">
+              {formatTime(event.startTime)}
+            </span>
+          )}
+          
+          {event.suspended && (
+            <span className="inline-flex items-center text-red-500 text-sm">
+              <Lock className="w-3 h-3 mr-1" />
+              Suspended
+            </span>
+          )}
+        </div>
+      </div>
+
       {mainMarket.selections.map((selection) => {
         const isSelected = bets.some(bet => bet.selectionId === selection.id);
         return (

@@ -1,10 +1,12 @@
 import React from 'react';
 import { ConnectionStatus } from '../../common/components/ConnectionStatus';
-import { WSMonitor } from '../../common/components/WSMonitor';
+import { WSMonitor } from '../WSMonitor';
 import { useSportsbookConnection } from '../hooks/useSportsbookConnection';
+import { useSportsBookStore } from '../events/useEventsStore';
 
 export const SportsbookConnection = () => {
   const { isConnected, lastPing, reconnectAttempts, subscriptions, toggleConnection } = useSportsbookConnection();
+  const activeTab = useSportsBookStore(state => state.activeTab);
 
   return (
     <>
@@ -16,8 +18,9 @@ export const SportsbookConnection = () => {
         onToggleConnection={toggleConnection}
       />
       <WSMonitor 
-        subscriptions={subscriptions}
         isConnected={isConnected}
+        activeTab={activeTab}
+        position="bottom-left"
       />
     </>
   );
