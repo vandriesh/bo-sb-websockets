@@ -1,3 +1,39 @@
 {
-  "template": "bolt-vite-react-ts"
+  "apps": {
+    "server": {
+      "type": "node",
+      "root": "src/server",
+      "entry": "index.ts",
+      "port": 3001
+    },
+    "sportsbook": {
+      "type": "react",
+      "root": "src/sportsbook",
+      "entry": "main.tsx",
+      "port": 5173
+    },
+    "backoffice": {
+      "type": "react",
+      "root": "src/backoffice",
+      "entry": "main.tsx",
+      "port": 5175
+    }
+  },
+  "guidelines": {
+    "code": {
+      "structure": {
+        "props": "Keep props with component definitions, do not separate into interfaces",
+        "files": "Maintain flat file structure, avoid deep nesting",
+        "cleanup": "Remove old/unused code immediately after refactoring"
+      },
+      "style": {
+        "components": "Keep components self-contained with their props",
+        "typescript": "Use inline prop types instead of separate interfaces"
+      }
+    },
+    "refactoring": {
+      "cleanup": "Always remove old code after successful refactoring",
+      "validation": "Ensure all references are updated before removing old code"
+    }
+  }
 }
