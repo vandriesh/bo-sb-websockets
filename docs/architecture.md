@@ -7,20 +7,28 @@ graph TB
     subgraph Socket["Socket Layer (socket.ts)"]
         S[Socket.io Client]
         ES[Enhanced Socket]
+        direction TB
+        S --> ES
     end
 
     subgraph BackOffice["Back Office (src/backoffice)"]
         subgraph BOEvents["Events Feature"]
             BO_EVENT_LIST["EventList.tsx"]
             BO_EVENT_ITEM["EventItem.tsx"]
-            BO_HOOKS["hooks/useEvents.ts"]
+            BO_HOOKS["hooks/usePriceUpdate.ts"]
             BO_SOCKET["socket/eventsSocket.ts"]
             BO_STORE["store/eventsStore.ts"]
+            
+            BO_EVENT_LIST --> BO_EVENT_ITEM
+            BO_EVENT_ITEM --> BO_HOOKS
+            BO_HOOKS --> BO_SOCKET
+            BO_SOCKET --> BO_STORE
         end
     end
 
     subgraph CommonSocket["Common Socket Handlers"]
-        SB_SOCKET["sb-socket.ts<br/>Sportsbook Socket"]
+        MARKET_SOCKET["Market Socket<br/>*:Market:{id}"]
+        EVENT_SOCKET["Event Socket<br/>*:Event:{id}"]
     end
 
     subgraph StateManagement["State Management"]
@@ -36,33 +44,34 @@ graph TB
 
     subgraph Sportsbook["Sportsbook (src/sportsbook)"]
         SB_APP["App.tsx"]
-        SB_COMP["components/<br/>- EventList.tsx<br/>- EventDetails.tsx<br/>- Betslip.tsx"]
+        subgraph SB_COMPONENTS["Components"]
+            SB_EVENT_LIST["EventList.tsx"]
+            SB_EVENT_DETAILS["EventDetails.tsx"]
+            SB_BETSLIP["Betslip.tsx"]
+        end
     end
 
     %% Socket Connections
-    S --> ES
-    ES --> BO_SOCKET
-    ES --> SB_SOCKET
-    
-    %% State Management Connections
-    ES_SLICE --> BO_STORE
-    ES_SLICE --> SB_STORE
+    ES --> MARKET_SOCKET
+    ES --> EVENT_SOCKET
     
     %% Socket to Store Connections
-    BO_SOCKET --> BO_STORE
-    SB_SOCKET --> SB_STORE
+    MARKET_SOCKET --> |"SelectionPriceChange"| BO_STORE
+    EVENT_SOCKET --> |"EventStatusUpdate"| BO_STORE
+    MARKET_SOCKET --> |"SelectionPriceChange"| SB_STORE
+    EVENT_SOCKET --> |"EventStatusUpdate"| SB_STORE
     
     %% Store to Components Connections
-    BO_STORE --> BO_EVENT_LIST
-    BO_EVENT_LIST --> BO_EVENT_ITEM
-    SB_STORE --> SB_COMP
-    BETSLIP --> SB_COMP
+    ES_SLICE --> BO_STORE
+    ES_SLICE --> SB_STORE
+    SB_STORE --> SB_COMPONENTS
+    BETSLIP --> SB_BETSLIP
 
     classDef socket fill:#f9f,stroke:#333,stroke-width:2px
     classDef store fill:#bbf,stroke:#333,stroke-width:2px
     classDef component fill:#bfb,stroke:#333,stroke-width:2px
     
-    class Socket socket
+    class Socket,CommonSocket socket
     class StateManagement store
     class BackOffice,Sportsbook component
 ```
@@ -72,17 +81,19 @@ graph TB
 1. Socket Layer
    - `socket.ts`: Establishes WebSocket connection
    - Enhanced Socket wrapper provides type-safe event handling
+   - Separate channels for market and event updates
 
 2. Back Office Application
    - Events Feature (`src/backoffice/events/`)
      - `EventList.tsx`: Main events management interface
      - `EventItem.tsx`: Individual event row with price controls
-     - `hooks/useEvents.ts`: Data fetching logic
-     - `socket/eventsSocket.ts`: Event-specific socket handlers
+     - `usePriceUpdate.ts`: Price update logic with debouncing
+     - `socket/eventsSocket.ts`: Market and event socket handlers
      - `store/eventsStore.ts`: Events state management
 
 3. Common Socket Handlers
-   - `sb-socket.ts`: Manages Sportsbook specific socket events
+   - Market Socket (`*:Market:{id}`): Handles price updates
+   - Event Socket (`*:Event:{id}`): Handles status updates
 
 4. State Management
    - Common Store
@@ -94,10 +105,13 @@ graph TB
 5. Sportsbook Application
    - Multi-page application with routing
    - Event list, details, and betslip functionality
+   - Real-time price and status updates
 
 ## Key Features
 
 - Real-time updates using WebSocket
+  - Market-based price updates
+  - Event-based status updates
 - Shared state management logic
 - Screaming architecture organization
   - Features organized by domain/purpose
@@ -115,7 +129,7 @@ The Back Office follows a screaming architecture pattern, organizing code by fea
    - Complete ownership of events management
    - Self-contained with its own:
      - Components (EventList, EventItem)
-     - Hooks (useEvents)
+     - Hooks (usePriceUpdate)
      - Store (eventsStore)
      - Socket handlers (eventsSocket)
 

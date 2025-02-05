@@ -6,18 +6,20 @@ import { WsMessageType } from '../../types';
 
 interface BOEventsState extends EventsSlice {
   updating: string | null;
-  updateSelectionPrice: (eventId: string, marketId: number, selectionId: string, newPrice: number) => void;
+  updateSelectionPrice: (eventId: number, marketId: number, selectionId: string, newPrice: number) => void;
   setUpdating: (id: string | null) => void;
-  setSuspended: (eventId: string, suspended: boolean) => void;
+  setSuspended: (eventId: number, suspended: boolean) => void;
 }
 
 export const useEventsStore = create<BOEventsState>()(
   devtools(
     (set) => ({
-      ...createEventsSlice(set, 'boEvents'),
+      ...createEventsSlice(set, 'boEvents', (state) => {
+        console.log('📦 [BO] Store state changed:', state);
+      }),
       updating: null,
       updateSelectionPrice: (eventId, marketId, selectionId, newPrice) => {
-        console.log('Updating selection price:', { eventId, marketId, selectionId, newPrice });
+        console.log('📦 [BO] Updating selection price:', { eventId, marketId, selectionId, newPrice });
         set(
           (state) => ({
             events: state.events.map(event => {
@@ -47,11 +49,11 @@ export const useEventsStore = create<BOEventsState>()(
         );
       },
       setUpdating: (id) => {
-        console.log('Setting updating:', id);
+        console.log('📦 [BO] Setting updating:', id);
         set({ updating: id }, false, 'boEvents/setUpdating');
       },
       setSuspended: (eventId, suspended) => {
-        console.log('Initiating suspension:', { eventId, suspended });
+        console.log('📦 [BO] Setting suspended state:', { eventId, suspended });
         set(
           (state) => ({
             events: state.events.map(event =>
@@ -63,7 +65,7 @@ export const useEventsStore = create<BOEventsState>()(
         );
         
         enhancedSocket.emitEventUpdate(eventId, {
-          type: WsMessageType.EventUpdate,
+          type: WsMessageType.EventStatusUpdate,
           payload: {
             id: eventId,
             suspended

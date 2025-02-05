@@ -10,23 +10,21 @@ const httpServer = createServer(app);
 
 // Configure CORS for both HTTP and WebSocket
 const corsOptions = {
-  origin: "*", // Allow all origins in WebContainer
+  origin: "*",
   methods: ["GET", "POST"],
-  credentials: false // Must be false for WebContainer
+  credentials: false
 };
 
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Configure Socket.IO with WebContainer-compatible settings
+// Configure Socket.IO with CORS and better error handling
 const io = new Server(httpServer, {
   cors: corsOptions,
   transports: ['websocket', 'polling'],
-  path: '/socket.io/',
+  pingTimeout: 30000,
+  pingInterval: 25000,
   connectTimeout: 10000,
-  pingTimeout: 5000,
-  pingInterval: 10000,
-  serveClient: false,
   allowEIO3: true
 });
 
@@ -35,9 +33,6 @@ app.get('/api/events', getEvents);
 
 io.on('connection', (socket) => {
   console.log('⚡️ WebSocket connected:', socket.id);
-
-  // Send initial connection acknowledgment
-  socket.emit('connect_ack', { id: socket.id });
 
   // Handle market-specific price updates
   socket.on('market:update', (channel: string, message: WebSocketMessage<SelectionPriceChangePayload>) => {
@@ -55,8 +50,8 @@ io.on('connection', (socket) => {
       
       if (message.type === 'SelectionPriceChange') {
         const priceChange = message.payload;
-        // Broadcast the price change to all OTHER clients (excluding sender)
-        socket.broadcast.emit(channel, {
+        // Broadcast the price change to all clients (including sender)
+        io.emit(channel, {
           type: 'SelectionPriceChange',
           payload: {
             marketId,
@@ -87,11 +82,11 @@ io.on('connection', (socket) => {
       
       const eventId = parseInt(match[1], 10);
       
-      if (message.type === 'EVENT_UPDATE') {
+      if (message.type === 'EventStatusUpdate') {
         const eventUpdate = message.payload;
-        // Broadcast the event update to all OTHER clients (excluding sender)
-        socket.broadcast.emit(channel, {
-          type: 'EVENT_UPDATE',
+        // Broadcast the event update to all clients (including sender)
+        io.emit(channel, {
+          type: 'EventStatusUpdate',
           payload: {
             id: eventId,
             suspended: eventUpdate.suspended
